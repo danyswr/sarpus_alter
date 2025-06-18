@@ -315,14 +315,17 @@ export default function Dashboard() {
             </Card>
           ) : (
             <div className="space-y-0">
-              {(posts as Post[]).map((post: Post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onLike={(postId, type) => likePostMutation.mutate({ postId, type })}
-                  onDelete={(postId) => deletePostMutation.mutate(postId)}
-                />
-              ))}
+              {(posts as Post[]).map((post: Post) => {
+                console.log(`Rendering post ${post.id}:`, post);
+                return (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onLike={(postId, type) => likePostMutation.mutate({ postId, type })}
+                    onDelete={(postId) => deletePostMutation.mutate(postId)}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

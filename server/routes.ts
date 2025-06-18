@@ -294,8 +294,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Convert Google Drive URLs to directly viewable format
-        if (fixedPost.imageUrl) {
+        if (fixedPost.imageUrl && fixedPost.imageUrl.trim() !== '') {
           fixedPost.imageUrl = convertGoogleDriveUrl(fixedPost.imageUrl);
+          console.log(`Converted image URL for ${fixedPost.id}: ${fixedPost.imageUrl}`);
         }
         
         // Ensure we have proper user info
@@ -342,7 +343,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let returnedPost = result.post;
       if (returnedPost && returnedPost.imageUrl) {
         returnedPost.imageUrl = convertGoogleDriveUrl(returnedPost.imageUrl);
+        console.log(`Created post with image: ${returnedPost.imageUrl}`);
       }
+      
+      console.log(`Post created successfully: ${JSON.stringify(returnedPost)}`);
       
       res.json({
         message: result.message || "Postingan berhasil dibuat",
