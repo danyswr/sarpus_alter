@@ -33,9 +33,14 @@ export default function Login() {
       setIsLoading(true);
       setError("");
       
+      console.log("Attempting login with:", data.email);
       await login(data.email, data.password);
-      setLocation("/dashboard");
+      console.log("Login successful, redirecting to dashboard");
+      
+      // Force redirect setelah login berhasil
+      window.location.href = "/dashboard";
     } catch (err) {
+      console.error("Login error:", err);
       setError(err instanceof Error ? err.message : "Terjadi kesalahan saat login");
     } finally {
       setIsLoading(false);
@@ -104,6 +109,12 @@ export default function Login() {
                 Daftar sekarang
               </Link>
             </p>
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-xs text-blue-700 font-medium">Akun Demo (saat Google Apps Script belum di-setup):</p>
+              <p className="text-xs text-blue-600">Admin: admin@admin.admin / admin123</p>
+              <p className="text-xs text-blue-600">User: user@student.com / user123</p>
+              <p className="text-xs text-gray-500 mt-1">Untuk setup lengkap, lihat file SETUP_LENGKAP.md</p>
+            </div>
           </div>
         </CardContent>
       </Card>

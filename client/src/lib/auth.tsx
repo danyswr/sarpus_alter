@@ -47,10 +47,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
+      console.log("API login attempt for:", email);
       const result = await api.login(email, password);
+      console.log("API login result:", result);
       
       if (result.error) {
         throw new Error(result.error);
+      }
+
+      if (!result.idUsers) {
+        throw new Error("Data login tidak lengkap dari server");
       }
 
       const userData: User = {
@@ -62,9 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         jurusan: result.jurusan
       };
 
+      console.log("Setting user data:", userData);
       setUser(userData);
       localStorage.setItem("feedbacku_user", JSON.stringify(userData));
     } catch (error) {
+      console.error("Auth login error:", error);
       throw error;
     }
   };

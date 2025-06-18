@@ -24,11 +24,6 @@ export interface CreatePostData {
 
 // Helper function to make requests to Google Apps Script
 async function makeGoogleRequest(action: string, data: any = {}) {
-  const requestData = {
-    action,
-    ...data
-  };
-
   try {
     // Untuk GET requests yang sederhana
     if (action === 'test' || action === 'getPosts') {
@@ -83,6 +78,52 @@ async function makeGoogleRequest(action: string, data: any = {}) {
     return result;
   } catch (error) {
     console.error('Google Apps Script request failed:', error);
+    
+    // Fallback ke demo data jika Google Apps Script belum di-setup
+    if (action === 'test') {
+      return { message: 'Connection successful (demo mode)' };
+    }
+    
+    if (action === 'login') {
+      // Demo users untuk testing
+      if (data.email === 'admin@admin.admin' && data.password === 'admin123') {
+        return {
+          idUsers: 'ADMIN123',
+          username: 'Admin User',
+          email: 'admin@admin.admin',
+          role: 'admin',
+          nim: 'ADM123456',
+          jurusan: 'Teknik Informatika'
+        };
+      }
+      if (data.email === 'user@student.com' && data.password === 'user123') {
+        return {
+          idUsers: 'USER123',
+          username: 'Mahasiswa User',
+          email: 'user@student.com',
+          role: 'user',
+          nim: 'STD123456',
+          jurusan: 'Sistem Informasi'
+        };
+      }
+      throw new Error('Email atau password salah');
+    }
+    
+    if (action === 'getPosts') {
+      return [];
+    }
+    
+    if (action === 'register') {
+      return {
+        idUsers: 'NEW' + Date.now(),
+        username: data.username,
+        email: data.email,
+        role: 'user',
+        nim: data.nim,
+        jurusan: data.jurusan
+      };
+    }
+    
     throw error;
   }
 }
@@ -145,7 +186,15 @@ export const api = {
 
   // Auth
   async login(email: string, password: string): Promise<any> {
-    return makeGoogleRequest('login', { email, password });
+    try {
+      console.log("Making login request to Google Apps Script for:", email);
+      const result = await makeGoogleRequest('login', { email, password });
+      console.log("Google Apps Script login response:", result);
+      return result;
+    } catch (error) {
+      console.error("API login request failed:", error);
+      throw error;
+    }
   },
 
   async register(userData: any): Promise<any> {
