@@ -279,14 +279,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Post routes
   app.get("/api/posts", async (req, res) => {
     try {
-      const result = await callGoogleScript('getPosts');
+      console.log("Fetching posts from Google Apps Script...");
+      
+      // Try different approaches to handle Google Apps Script errors
+      let result;
+      try {
+        result = await callGoogleScript('getPosts');
+      } catch (gasError) {
+        console.log("Primary Google Apps Script call failed, trying fallback...");
+        // Try with different method
+        result = await fetch(GOOGLE_SCRIPT_URL + "?action=getPosts", {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        }).then(response => response.json()).catch(() => ({ error: "Connection failed" }));
+      }
       
       if (result.error) {
+        console.error("Google Apps Script error:", result.error);
         return res.status(500).json({ error: result.error });
       }
 
       // Google Apps Script returns posts directly as array
       let posts = Array.isArray(result) ? result : result.posts || [];
+      
+      // Log raw data for debugging
+      console.log("Raw posts data from Google Apps Script:", JSON.stringify(posts, null, 2));
       
       // Fix the data structure issues from Google Apps Script
       posts = posts.map((post: any) => {
@@ -337,6 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return dateB - dateA;
       });
       
+      console.log("Processed posts count:", posts.length);
       res.json(posts);
     } catch (error) {
       console.error("Get posts error:", error);
