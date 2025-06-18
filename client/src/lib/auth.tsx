@@ -12,7 +12,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     try {
       console.log("API login attempt for:", email);
       const result = await authApi.login(email, password);
@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("Setting user data:", userData);
       setUser(userData);
       localStorage.setItem("feedbacku_user", JSON.stringify(userData));
+      return userData;
     } catch (error) {
       console.error("Auth login error:", error);
       throw error;
