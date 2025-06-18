@@ -85,11 +85,13 @@ export function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
     const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    const diffInWeeks = Math.floor(diffInDays / 7);
     
     if (diffInMinutes < 1) return 'Baru saja';
-    if (diffInMinutes < 60) return `${diffInMinutes}m`;
-    if (diffInHours < 24) return `${diffInHours}j`;
-    if (diffInDays < 7) return `${diffInDays}h`;
+    if (diffInMinutes < 60) return `${diffInMinutes} menit yang lalu`;
+    if (diffInHours < 24) return `${diffInHours} jam yang lalu`;
+    if (diffInDays < 7) return `${diffInDays} hari yang lalu`;
+    if (diffInWeeks < 4) return `${diffInWeeks} minggu yang lalu`;
     
     return date.toLocaleDateString('id-ID', {
       day: '2-digit',

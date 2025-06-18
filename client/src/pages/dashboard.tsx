@@ -333,7 +333,22 @@ export default function Dashboard() {
             </Card>
           ) : (
             <div className="space-y-0">
-              {(posts as Post[]).map((post: Post, index: number) => {
+              {(posts as Post[])
+                .sort((a, b) => {
+                  // Sort by timestamp (newest first)
+                  const dateA = new Date(a.timestamp).getTime();
+                  const dateB = new Date(b.timestamp).getTime();
+                  
+                  // If timestamps are the same or invalid, sort by ID (newer posts have higher IDs)
+                  if (isNaN(dateA) || isNaN(dateB) || Math.abs(dateA - dateB) < 1000) {
+                    const idA = parseInt((a.idPostingan || a.id || '0').replace(/\D/g, '') || '0');
+                    const idB = parseInt((b.idPostingan || b.id || '0').replace(/\D/g, '') || '0');
+                    return idB - idA;
+                  }
+                  
+                  return dateB - dateA;
+                })
+                .map((post: Post, index: number) => {
                 console.log(`Rendering post ${post.id}:`, post);
                 // Create a truly unique key by combining all available identifiers
                 const baseId = post.idPostingan || post.id || `temp-${index}`;
