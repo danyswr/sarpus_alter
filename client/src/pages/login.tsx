@@ -35,10 +35,18 @@ export default function Login() {
       
       console.log("Attempting login with:", data.email);
       await login(data.email, data.password);
-      console.log("Login successful, redirecting to dashboard");
       
-      // Force redirect setelah login berhasil
-      window.location.href = "/dashboard";
+      // Get updated user data after login
+      const userData = JSON.parse(localStorage.getItem("feedbacku_user") || "{}");
+      
+      // Redirect based on role
+      if (userData.role === "admin" || userData.role === "Admin") {
+        console.log("Admin detected, redirecting to admin page");
+        window.location.href = "/admin";
+      } else {
+        console.log("User detected, redirecting to dashboard");
+        window.location.href = "/dashboard";
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError(err instanceof Error ? err.message : "Terjadi kesalahan saat login");

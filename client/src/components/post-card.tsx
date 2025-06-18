@@ -22,19 +22,21 @@ export function PostCard({ post, onLike, onDelete }: PostCardProps) {
 
   const handleLike = () => {
     if (!user) return;
-    onLike(post.idPostingan, 'like');
+    const postId = post.id || post.idPostingan;
+    onLike(postId, 'like');
     setIsLiked(!isLiked);
     if (isDisliked) setIsDisliked(false);
   };
 
   const handleDislike = () => {
     if (!user) return;
-    onLike(post.idPostingan, 'dislike');
+    const postId = post.id || post.idPostingan;
+    onLike(postId, 'dislike');
     setIsDisliked(!isDisliked);
     if (isLiked) setIsLiked(false);
   };
 
-  const canDelete = user && (user.idUsers === post.idUsers || user.role === 'admin');
+  const canDelete = user && (user.idUsers === (post.userId || post.idUsers) || user.role === 'admin' || user.role === 'Admin');
 
   const formatTimestamp = (timestamp: Date | string) => {
     const date = new Date(timestamp);
@@ -69,7 +71,7 @@ export function PostCard({ post, onLike, onDelete }: PostCardProps) {
           
           {canDelete && onDelete && (
             <Button
-              onClick={() => onDelete(post.idPostingan)}
+              onClick={() => onDelete(post.id || post.idPostingan)}
               variant="ghost"
               size="sm"
               className="text-gray-400 hover:text-red-500"

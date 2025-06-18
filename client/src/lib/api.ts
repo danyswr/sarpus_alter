@@ -14,7 +14,9 @@ export interface User {
 
 export interface Post {
   id: string;
+  idPostingan?: string;
   userId: string;
+  idUsers?: string;
   username: string;
   timestamp: string;
   judul: string;
@@ -22,6 +24,8 @@ export interface Post {
   likes: number;
   dislikes: number;
   imageUrl?: string;
+  likedBy?: string[];
+  dislikedBy?: string[];
 }
 
 export interface ApiResponse<T = any> {
