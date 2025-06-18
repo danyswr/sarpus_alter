@@ -505,7 +505,7 @@ function handleLikeDislike(e, forceType) {
   }
 }
 
-// FIXED: Comment system with better error handling
+// FIXED: Comment system with improved error handling and validation
 function handleGetComments(e) {
   try {
     var data = getCommentData(e);
@@ -581,31 +581,56 @@ function handleCreateComment(e) {
     var userId = data.userId;
     var comment = data.comment;
     
-    Logger.log("Creating comment with data: " + JSON.stringify(data));
+    Logger.log("Creating comment with raw data: " + JSON.stringify(e.postData));
+    Logger.log("Parsed comment data: " + JSON.stringify(data));
     
-    if (!postId) {
+    // Validate required fields
+    if (!postId || postId === "") {
+      Logger.log("Missing postId");
       return { error: "Post ID harus diisi" };
     }
     
-    if (!userId) {
+    if (!userId || userId === "") {
+      Logger.log("Missing userId");
       return { error: "User ID harus diisi" };
     }
     
     if (!comment || comment.trim() === "") {
+      Logger.log("Missing or empty comment");
       return { error: "Komentar tidak boleh kosong" };
+    }
+    
+    // Verify post exists
+    var postingSheet = getSheet("Posting");
+    var postData = postingSheet.getDataRange().getValues();
+    var postExists = false;
+    
+    for (var i = 1; i < postData.length; i++) {
+      if (postData[i][0] === postId) {
+        postExists = true;
+        break;
+      }
+    }
+    
+    if (!postExists) {
+      Logger.log("Post not found: " + postId);
+      return { error: "Postingan tidak ditemukan" };
     }
     
     var commentsSheet = getSheet("Comments");
     var newId = "COMMENT_" + Date.now();
     
     try {
-      commentsSheet.appendRow([
+      var newRow = [
         newId,
         postId,
         userId,
         comment.trim(),
         new Date()
-      ]);
+      ];
+      
+      Logger.log("Appending comment row: " + JSON.stringify(newRow));
+      commentsSheet.appendRow(newRow);
       
       Logger.log("Comment successfully created with ID: " + newId);
       
@@ -999,6 +1024,9 @@ function getLikeData(e) {
 }
 
 function getCommentData(e) {
+  Logger.log("Raw request data: " + JSON.stringify(e));
+  
+  // For GET requests (getComments)
   if (e && e.parameter) {
     return {
       postId: e.parameter.postId || "",
@@ -1008,9 +1036,11 @@ function getCommentData(e) {
     };
   }
   
+  // For POST requests (createComment)
   if (e && e.postData && e.postData.contents) {
     try {
       var data = JSON.parse(e.postData.contents);
+      Logger.log("Parsed POST data: " + JSON.stringify(data));
       return {
         postId: data.postId || "",
         userId: data.userId || "",
@@ -1019,8 +1049,10 @@ function getCommentData(e) {
       };
     } catch (error) {
       Logger.log("Parse comment data error: " + error.toString());
+      Logger.log("Raw POST contents: " + e.postData.contents);
     }
   }
+  
   return {};
 }
 
