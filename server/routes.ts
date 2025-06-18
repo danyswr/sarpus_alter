@@ -71,21 +71,14 @@ function convertGoogleDriveUrl(url: string): string {
     }
   }
   
-  // Format 4: Direct links from Google Drive sharing
-  if (!fileId) {
-    match = url.match(/https:\/\/[^\/]+\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
-    if (match) {
-      fileId = match[1];
-    }
-  }
-  
-  // If we found a file ID, return direct access URL for images
+  // If we found a file ID, try multiple direct access formats for better compatibility
   if (fileId) {
-    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+    // Try the most reliable format first
+    return `https://lh3.googleusercontent.com/d/${fileId}=w1000`;
   }
   
   // If it's already a direct Google Drive URL, return as is
-  if (url.includes('drive.google.com/uc?export=view')) {
+  if (url.includes('drive.google.com/uc?export=view') || url.includes('googleusercontent.com')) {
     return url;
   }
   

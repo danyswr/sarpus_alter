@@ -77,15 +77,12 @@ export default function Dashboard() {
       if (data.imageUrl && data.imageUrl.trim() !== "") {
         console.log("Setting image URL:", data.imageUrl);
         setNewPost(prev => ({ ...prev, imageUrl: data.imageUrl }));
-        alert("Gambar berhasil diupload!");
       } else {
         console.warn("No image URL received from upload");
-        alert("Upload berhasil tapi URL gambar tidak tersedia");
       }
     },
     onError: (error) => {
       console.error("Image upload failed:", error);
-      alert("Gagal mengupload gambar ke Google Drive. Pastikan koneksi internet stabil dan coba lagi.");
     },
   });
 
@@ -175,47 +172,38 @@ export default function Dashboard() {
                     />
                     
                     {/* Image Preview */}
-                    {newPost.imageUrl && (
+                    {(newPost.imageUrl || uploadImageMutation.isPending) && (
                       <div className="relative inline-block">
                         <div className="relative w-full max-w-md">
-                          <img 
-                            src={newPost.imageUrl} 
-                            alt="Preview gambar" 
-                            className="w-full h-auto rounded-lg border border-gray-200 max-h-96 object-cover"
-                            style={{ display: 'block' }}
-                            onLoad={() => {
-                              console.log("Image loaded successfully:", newPost.imageUrl);
-                            }}
-                            onError={(e) => {
-                              console.error("Image failed to load:", newPost.imageUrl);
-                              e.currentTarget.style.display = 'none';
-                              const parent = e.currentTarget.parentElement;
-                              if (parent) {
-                                const placeholder = parent.querySelector('.image-placeholder');
-                                if (placeholder) {
-                                  (placeholder as HTMLElement).style.display = 'flex';
-                                }
-                              }
-                            }}
-                          />
-                          <div 
-                            className="image-placeholder w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex flex-col items-center justify-center text-gray-500"
-                            style={{ display: 'none' }}
-                          >
-                            <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                            </svg>
-                            <span className="text-sm">Gambar dari Google Drive</span>
-                          </div>
+                          {uploadImageMutation.isPending ? (
+                            <div className="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex flex-col items-center justify-center text-gray-500">
+                              <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mb-2"></div>
+                              <span className="text-sm">Mengupload ke Google Drive...</span>
+                            </div>
+                          ) : (
+                            <img 
+                              src={newPost.imageUrl} 
+                              alt="Preview gambar" 
+                              className="w-full h-auto rounded-lg border border-gray-200 max-h-96 object-cover"
+                              onLoad={() => {
+                                console.log("Preview image loaded successfully:", newPost.imageUrl);
+                              }}
+                              onError={(e) => {
+                                console.error("Preview image failed to load:", newPost.imageUrl);
+                              }}
+                            />
+                          )}
                         </div>
-                        <Button
-                          onClick={() => setNewPost(prev => ({ ...prev, imageUrl: "" }))}
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2 w-8 h-8 p-0 rounded-full"
-                        >
-                          ×
-                        </Button>
+                        {!uploadImageMutation.isPending && (
+                          <Button
+                            onClick={() => setNewPost(prev => ({ ...prev, imageUrl: "" }))}
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2 w-8 h-8 p-0 rounded-full"
+                          >
+                            ×
+                          </Button>
+                        )}
                       </div>
                     )}
 
@@ -316,8 +304,12 @@ export default function Dashboard() {
             <div className="space-y-0">
               {(posts as Post[]).map((post: Post, index: number) => {
                 console.log(`Rendering post ${post.id}:`, post);
-                // Ensure unique keys by combining multiple identifiers
-                const uniqueKey = `${post.id || post.idPostingan || `post-${index}`}-${post.timestamp || index}`;
+                // Create a truly unique key by combining all available identifiers
+                const baseId = post.idPostingan || post.id || `temp-${index}`;
+                const timestamp = post.timestamp ? new Date(post.timestamp).getTime() : Date.now() + index;
+                const content = (post.judul + post.deskripsi).slice(0, 10).replace(/\s/g, '');
+                const uniqueKey = `${baseId}-${timestamp}-${content}-${index}`;
+                
                 return (
                   <PostCard
                     key={uniqueKey}

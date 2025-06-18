@@ -89,62 +89,24 @@ export function PostCard({ post, onLike, onDelete }: PostCardProps) {
         
         {post.imageUrl && post.imageUrl.trim() !== "" && (
           <div className="relative w-full max-w-lg mb-3">
-            <img 
-              src={post.imageUrl}
-              alt="Post attachment" 
-              className="rounded-xl w-full h-auto max-h-96 object-cover border border-gray-200"
-              crossOrigin="anonymous"
-              referrerPolicy="no-referrer"
-              onLoad={(e) => {
-                console.log("✅ Post image loaded successfully:", post.imageUrl);
-                e.currentTarget.style.display = 'block';
-                const parent = e.currentTarget.parentElement;
-                if (parent) {
-                  const placeholder = parent.querySelector('.post-image-placeholder');
-                  if (placeholder) {
-                    (placeholder as HTMLElement).style.display = 'none';
-                  }
-                }
-              }}
-              onError={(e) => {
-                console.error("❌ Image failed to load:", post.imageUrl);
-                console.error("Trying alternative URL format...");
-                
-                // Try alternative Google Drive URL format
-                const originalUrl = post.imageUrl;
-                if (originalUrl) {
-                  let alternativeUrl = "";
-                  
-                  // Extract file ID and try direct view URL
-                  const fileIdMatch = originalUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-                  if (fileIdMatch) {
-                    alternativeUrl = `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
-                    console.log("Trying alternative URL:", alternativeUrl);
-                    e.currentTarget.src = alternativeUrl;
-                    return; // Give it one more try
-                  }
-                }
-                
-                // If still fails, show placeholder
-                e.currentTarget.style.display = 'none';
-                const parent = e.currentTarget.parentElement;
-                if (parent) {
-                  const placeholder = parent.querySelector('.post-image-placeholder');
-                  if (placeholder) {
-                    (placeholder as HTMLElement).style.display = 'flex';
-                  }
-                }
-              }}
-            />
-            <div 
-              className="post-image-placeholder w-full h-48 bg-gray-100 rounded-xl border border-gray-200 flex flex-col items-center justify-center text-gray-500"
-              style={{ display: 'none' }}
+            <div className="w-full bg-gray-100 rounded-xl border border-gray-200 p-4 flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
+                 onClick={() => {
+                   // Extract file ID for proper Google Drive viewing
+                   if (post.imageUrl) {
+                     const fileIdMatch = post.imageUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                     if (fileIdMatch) {
+                       const viewUrl = `https://drive.google.com/file/d/${fileIdMatch[1]}/view`;
+                       window.open(viewUrl, '_blank');
+                     }
+                   }
+                 }}
             >
-              <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-16 h-16 mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
               </svg>
-              <span className="text-sm">Gambar dari Google Drive</span>
-              <span className="text-xs text-gray-400 mt-1">Klik untuk membuka</span>
+              <span className="text-lg font-medium text-blue-600 mb-1">📸 Gambar Terlampir</span>
+              <span className="text-sm text-gray-600 text-center">Klik untuk melihat gambar di Google Drive</span>
+              <span className="text-xs text-gray-400 mt-2 px-3 py-1 bg-gray-200 rounded-full">Google Drive</span>
             </div>
           </div>
         )}
