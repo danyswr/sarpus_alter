@@ -70,17 +70,14 @@ export default function Dashboard() {
     },
     onSuccess: (data: any) => {
       console.log("Image upload success response:", data);
-      // Only set imageUrl if upload was successful and we got a valid URL
       if (data.imageUrl && data.imageUrl.trim() !== "") {
         console.log("Setting image URL:", data.imageUrl);
         setNewPost(prev => ({ ...prev, imageUrl: data.imageUrl }));
-      } else {
-        console.log("No valid imageUrl in response:", data);
       }
     },
     onError: (error) => {
       console.error("Image upload failed:", error);
-      // Continue without image - don't block posting
+      alert("Gagal mengupload gambar. Silakan coba lagi.");
     },
   });
 
@@ -172,19 +169,37 @@ export default function Dashboard() {
                     {/* Image Preview */}
                     {newPost.imageUrl && (
                       <div className="relative inline-block">
-                        <img 
-                          src={newPost.imageUrl} 
-                          alt="Uploaded" 
-                          className="max-w-full h-auto rounded-lg border border-gray-200 max-h-96"
-                          onError={(e) => {
-                            console.error("Image failed to load:", newPost.imageUrl);
-                            // Show error message instead of hiding
-                            e.currentTarget.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDIwMCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTUwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iNzUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Q0EzQUYiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCI+R2FtYmFyIGRhcmkgR29vZ2xlIERyaXZlPC90ZXh0Pgo8L3N2Zz4K";
-                          }}
-                          onLoad={() => {
-                            console.log("Image loaded successfully:", newPost.imageUrl);
-                          }}
-                        />
+                        <div className="relative w-full max-w-md">
+                          <img 
+                            src={newPost.imageUrl} 
+                            alt="Preview gambar" 
+                            className="w-full h-auto rounded-lg border border-gray-200 max-h-96 object-cover"
+                            style={{ display: 'block' }}
+                            onLoad={() => {
+                              console.log("Image loaded successfully:", newPost.imageUrl);
+                            }}
+                            onError={(e) => {
+                              console.error("Image failed to load:", newPost.imageUrl);
+                              e.currentTarget.style.display = 'none';
+                              const parent = e.currentTarget.parentElement;
+                              if (parent) {
+                                const placeholder = parent.querySelector('.image-placeholder');
+                                if (placeholder) {
+                                  (placeholder as HTMLElement).style.display = 'flex';
+                                }
+                              }
+                            }}
+                          />
+                          <div 
+                            className="image-placeholder w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex flex-col items-center justify-center text-gray-500"
+                            style={{ display: 'none' }}
+                          >
+                            <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                            </svg>
+                            <span className="text-sm">Gambar dari Google Drive</span>
+                          </div>
+                        </div>
                         <Button
                           onClick={() => setNewPost(prev => ({ ...prev, imageUrl: "" }))}
                           variant="destructive"

@@ -46,16 +46,26 @@ const likePostSchema = z.object({
 function convertGoogleDriveUrl(url: string): string {
   if (!url) return url;
   
-  // If URL contains file ID, extract it and convert to direct view format
-  const fileIdMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (fileIdMatch) {
-    const fileId = fileIdMatch[1];
-    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  // Extract file ID from various Google Drive URL formats
+  let fileId = '';
+  
+  // Format 1: https://drive.google.com/uc?id=FILE_ID&export=view
+  let match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (match) {
+    fileId = match[1];
   }
   
-  // If already in direct format, return as is
-  if (url.includes('drive.google.com/uc?') && url.includes('export=view')) {
-    return url;
+  // Format 2: https://drive.google.com/file/d/FILE_ID/view
+  if (!fileId) {
+    match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match) {
+      fileId = match[1];
+    }
+  }
+  
+  // If we found a file ID, return direct access URL
+  if (fileId) {
+    return `https://lh3.googleusercontent.com/d/${fileId}`;
   }
   
   return url;
@@ -264,7 +274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const posts = Array.isArray(result) ? result : result.posts || [];
       
       // Convert Google Drive URLs to directly viewable format
-      const postsWithConvertedUrls = posts.map(post => ({
+      const postsWithConvertedUrls = posts.map((post: any) => ({
         ...post,
         imageUrl: post.imageUrl ? convertGoogleDriveUrl(post.imageUrl) : post.imageUrl
       }));
