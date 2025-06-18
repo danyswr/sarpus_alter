@@ -28,6 +28,15 @@ export interface Post {
   imageUrl?: string;
 }
 
+export interface Comment {
+  idComment: string;
+  idPostingan: string;
+  idUsers: string;
+  comment: string;
+  timestamp: string;
+  username: string;
+}
+
 export interface ApiResponse<T = any> {
   success?: boolean;
   error?: string;
@@ -118,6 +127,19 @@ export const postsApi = {
 
   deletePost: async (postId: string, userId: string): Promise<ApiResponse> => {
     return apiCall(`/posts/${postId}`, 'DELETE', { userId });
+  },
+
+  getComments: async (postId: string): Promise<Comment[]> => {
+    const result = await apiCall(`/posts/${postId}/comments`, 'GET');
+    return Array.isArray(result) ? result : [];
+  },
+
+  createComment: async (postId: string, userId: string, comment: string): Promise<ApiResponse> => {
+    return apiCall(`/posts/${postId}/comments`, 'POST', { userId, comment });
+  },
+
+  deleteComment: async (commentId: string, userId: string): Promise<ApiResponse> => {
+    return apiCall(`/comments/${commentId}`, 'DELETE', { userId });
   }
 };
 

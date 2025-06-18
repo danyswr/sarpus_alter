@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ThumbsUp, ThumbsDown, Share2, Trash2, Edit3, Check, X } from "lucide-react";
-import type { Post } from "@/lib/api";
+import { ThumbsUp, ThumbsDown, MessageCircle, Trash2, Edit3, Check, X, Send } from "lucide-react";
+import type { Post, Comment } from "@/lib/api";
 import { api } from "@/lib/api";
 
 interface PostCardProps {
@@ -30,6 +30,11 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
   const [isLiking, setIsLiking] = useState(false);
   const [localLikes, setLocalLikes] = useState(post.likes || 0);
   const [localDislikes, setLocalDislikes] = useState(post.dislikes || 0);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [isPostingComment, setIsPostingComment] = useState(false);
 
   const handleLike = async () => {
     if (!user || isLiking) return;
@@ -333,12 +338,97 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
           <Button
             variant="ghost"
             size="sm"
+            onClick={handleToggleComments}
             className="flex items-center space-x-2 hover:text-green-500 transition-colors"
           >
-            <Share2 className="w-4 h-4" />
-            <span>Share</span>
+            <MessageCircle className="w-4 h-4" />
+            <span>{comments.length > 0 ? comments.length : 'Komentar'}</span>
           </Button>
         </div>
+
+        {/* Comments Section */}
+        {showComments && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            {/* Comment Input */}
+            {user && (
+              <div className="flex space-x-3 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-r from-secondary to-accent rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">
+                    {user.username?.charAt(0).toUpperCase() || 'U'}
+                  </span>
+                </div>
+                <div className="flex-1 flex space-x-2">
+                  <Input
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Tulis komentar..."
+                    className="flex-1"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handlePostComment();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={handlePostComment}
+                    disabled={!newComment.trim() || isPostingComment}
+                    size="sm"
+                    className="bg-secondary hover:bg-secondary/90"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Comments List */}
+            {isLoadingComments ? (
+              <div className="text-center text-gray-500 py-4">Memuat komentar...</div>
+            ) : comments.length > 0 ? (
+              <div className="space-y-3">
+                {comments.map((comment) => (
+                  <div key={comment.idComment} className="flex space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">
+                        {comment.username?.charAt(0).toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="bg-gray-100 rounded-lg px-3 py-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-sm text-gray-900">
+                            {comment.username || 'User'}
+                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-500">
+                              {formatCommentTime(comment.timestamp)}
+                            </span>
+                            {user && (user.idUsers === comment.idUsers || user.role === 'admin') && (
+                              <Button
+                                onClick={() => handleDeleteComment(comment.idComment)}
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-400 hover:text-red-500 p-1 h-auto"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-gray-700 text-sm">{comment.comment}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-4">
+                Belum ada komentar. Jadilah yang pertama berkomentar!
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

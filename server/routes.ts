@@ -444,6 +444,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Comment routes
+  app.get("/api/posts/:id/comments", async (req, res) => {
+    try {
+      const postId = req.params.id;
+      
+      const result = await callGoogleScript('getComments', { postId });
+      
+      if (result.error) {
+        return res.status(500).json({ error: result.error });
+      }
+      
+      const comments = Array.isArray(result) ? result : [];
+      res.json(comments);
+    } catch (error) {
+      console.error("Get comments error:", error);
+      res.status(500).json({ error: "Failed to fetch comments: " + (error instanceof Error ? error.message : 'Unknown error') });
+    }
+  });
+
+  app.post("/api/posts/:id/comments", async (req, res) => {
+    try {
+      const postId = req.params.id;
+      const { userId, comment } = req.body;
+      
+      if (!userId || !comment) {
+        return res.status(400).json({ error: "User ID and comment are required" });
+      }
+      
+      const result = await callGoogleScript('createComment', { 
+        postId, 
+        userId, 
+        comment 
+      });
+      
+      if (result.error) {
+        return res.status(400).json({ error: result.error });
+      }
+      
+      res.json({
+        message: result.message || "Komentar berhasil dibuat",
+        comment: result.comment
+      });
+    } catch (error) {
+      console.error("Create comment error:", error);
+      res.status(500).json({ error: "Failed to create comment: " + (error instanceof Error ? error.message : 'Unknown error') });
+    }
+  });
+
+  app.delete("/api/comments/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      const result = await callGoogleScript('deleteComment', { 
+        commentId: id, 
+        userId 
+      });
+      
+      if (result.error) {
+        return res.status(400).json({ error: result.error });
+      }
+      
+      res.json({ message: result.message || "Komentar berhasil dihapus" });
+    } catch (error) {
+      console.error("Delete comment error:", error);
+      res.status(500).json({ error: "Failed to delete comment: " + (error instanceof Error ? error.message : 'Unknown error') });
+    }
+  });
+
   app.delete("/api/posts/:id", async (req, res) => {
     try {
       const { id } = req.params;

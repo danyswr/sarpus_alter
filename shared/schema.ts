@@ -28,6 +28,15 @@ export const posts = pgTable("posts", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  idComment: text("id_comment").notNull().unique(),
+  idPostingan: text("id_postingan").notNull(),
+  idUsers: text("id_users").notNull(),
+  comment: text("comment").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   email: true,
@@ -42,7 +51,13 @@ export const insertPostSchema = createInsertSchema(posts).pick({
   imageUrl: true,
 });
 
+export const insertCommentSchema = createInsertSchema(comments).pick({
+  comment: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type Post = typeof posts.$inferSelect;
+export type InsertComment = z.infer<typeof insertCommentSchema>;
+export type Comment = typeof comments.$inferSelect;
