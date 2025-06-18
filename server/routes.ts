@@ -89,10 +89,13 @@ function convertGoogleDriveUrl(url: string): string {
 // Helper function to call Google Apps Script
 async function callGoogleScript(action: string, data: any = {}) {
   try {
-    const response = await fetch(GOOGLE_SCRIPT_URL, {
+    // Try POST method first
+    let response = await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       },
       body: JSON.stringify({
         action,
@@ -101,10 +104,33 @@ async function callGoogleScript(action: string, data: any = {}) {
     });
 
     if (!response.ok) {
+      console.log(`POST failed with status ${response.status}, trying GET fallback for action: ${action}`);
+      // Try GET method as fallback
+      const queryParams = new URLSearchParams({
+        action,
+        ...Object.fromEntries(
+          Object.entries(data).map(([key, value]) => 
+            [key, typeof value === 'object' ? JSON.stringify(value) : String(value)]
+          )
+        )
+      });
+      
+      response = await fetch(`${GOOGLE_SCRIPT_URL}?${queryParams}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+    }
+
+    if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log(`Google Apps Script response for ${action}:`, result);
+    return result;
   } catch (error) {
     console.error('Google Script API error:', error);
     throw new Error('Failed to connect to Google Apps Script: ' + (error instanceof Error ? error.message : 'Unknown error'));
