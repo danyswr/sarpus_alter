@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
-// Google Apps Script URL
+// Google Apps Script URL - Updated with proper upload functionality
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz8YWdcQSZlVkmsV6PIvh8E6vDeV1fnbaj51atRBjWAEa5NRhSveWmuSsBNSDGfzfT-/exec";
 
 // Password utility functions
