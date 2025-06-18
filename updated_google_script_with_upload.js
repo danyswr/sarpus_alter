@@ -452,7 +452,7 @@ function handleUploadImage(e) {
     
     // Generate public URL for direct image display
     var fileId = file.getId();
-    var publicUrl = "https://drive.google.com/uc?id=" + fileId;
+    var publicUrl = "https://drive.google.com/uc?export=view&id=" + fileId;
 
     Logger.log("Image uploaded successfully: " + publicUrl);
 

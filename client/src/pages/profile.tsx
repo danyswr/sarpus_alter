@@ -44,7 +44,7 @@ export default function Profile() {
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["/api/posts"],
     enabled: !!user,
-  });
+  }) as { data: Post[], isLoading: boolean };
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: typeof editForm) => api.user.updateProfile(user!.idUsers, data),

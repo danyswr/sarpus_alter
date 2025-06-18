@@ -69,9 +69,13 @@ export default function Dashboard() {
       return api.upload.uploadImage(base64, file.name);
     },
     onSuccess: (data: any) => {
+      console.log("Image upload success response:", data);
       // Only set imageUrl if upload was successful and we got a valid URL
       if (data.imageUrl && data.imageUrl.trim() !== "") {
+        console.log("Setting image URL:", data.imageUrl);
         setNewPost(prev => ({ ...prev, imageUrl: data.imageUrl }));
+      } else {
+        console.log("No valid imageUrl in response:", data);
       }
     },
     onError: (error) => {
@@ -172,7 +176,19 @@ export default function Dashboard() {
                           src={newPost.imageUrl} 
                           alt="Uploaded" 
                           className="max-w-full h-auto rounded-lg border border-gray-200 max-h-96"
+                          onError={(e) => {
+                            console.error("Image failed to load:", newPost.imageUrl);
+                            // Don't clear the URL to allow user to see what went wrong
+                            e.currentTarget.style.display = 'none';
+                          }}
+                          onLoad={() => {
+                            console.log("Image loaded successfully:", newPost.imageUrl);
+                          }}
                         />
+                        {/* Show a placeholder if image fails to load */}
+                        <div className="text-center text-gray-500 text-sm mt-2">
+                          {newPost.imageUrl.includes('drive.google.com') ? 'Gambar dari Google Drive' : 'Gambar terupload'}
+                        </div>
                         <Button
                           onClick={() => setNewPost(prev => ({ ...prev, imageUrl: "" }))}
                           variant="destructive"
