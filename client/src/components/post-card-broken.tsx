@@ -15,7 +15,7 @@ interface PostCardProps {
   onUpdate?: () => void;
 }
 
-function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
+export function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(
     user ? post.likedBy?.includes(user.idUsers) : false
@@ -47,27 +47,16 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     
     setIsUpdating(true);
     try {
-      // Use direct API call for better compatibility
-      const response = await fetch(`/api/posts/${post.idPostingan}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          judul: editJudul,
-          deskripsi: editDeskripsi,
-          userId: user.idUsers
-        })
+      const result = await api.posts.updatePost(post.idPostingan, {
+        judul: editJudul,
+        deskripsi: editDeskripsi,
+        userId: user.idUsers
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Update error:', errorData.error);
+      if (result.error) {
+        console.error('Update error:', result.error);
         return;
       }
-      
-      const result = await response.json();
-      console.log('Update successful:', result);
       
       setIsEditing(false);
       if (onUpdate) onUpdate();
@@ -213,6 +202,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
               alt="Gambar postingan"
               className="w-full h-auto rounded-xl border border-gray-200 object-cover max-h-96"
               onError={(e) => {
+                // Fallback if image fails to load
                 const target = e.target as HTMLImageElement;
                 target.style.display = 'none';
                 const fallback = target.nextElementSibling as HTMLElement;
@@ -224,6 +214,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
             />
             <div className="hidden w-full bg-gray-100 rounded-xl border border-gray-200 p-4 flex-col items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
                  onClick={() => {
+                   // Extract file ID for proper Google Drive viewing
                    if (post.imageUrl) {
                      const fileIdMatch = post.imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
                      if (fileIdMatch) {
@@ -285,5 +276,3 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     </Card>
   );
 }
-
-export { PostCard };
