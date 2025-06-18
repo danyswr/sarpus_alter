@@ -5,7 +5,7 @@
 
 // Configuration
 const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
-const DRIVE_FOLDER_ID = '1mWUUou6QkdumcBT-Qizljc7T6s2jQxkw'; // Your Google Drive folder ID
+const DRIVE_FOLDER_ID = '1mWUUou6QkdumcBT-Qizljc7T6s2jQxkw'; // Google Drive folder ID untuk menyimpan gambar
 
 // Sheet names
 const USERS_SHEET = 'Users';
@@ -24,25 +24,24 @@ function doPost(e) {
 
 function handleRequest(e) {
   try {
-    // Enable CORS
-    const response = {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Content-Type': 'application/json'
-      }
-    };
-
+    Logger.log('Request received: ' + JSON.stringify(e));
+    
     // Get parameters from either URL or POST body
     let params = e.parameter || {};
     
-    if (e.postData && e.postData.contents) {
+    // Handle POST data dari FormData
+    if (e.postData && e.postData.type === 'application/x-www-form-urlencoded') {
+      const postParams = parseFormData(e.postData.contents);
+      params = { ...params, ...postParams };
+    }
+    
+    // Handle JSON POST data (fallback)
+    if (e.postData && e.postData.contents && e.postData.type === 'application/json') {
       try {
         const postData = JSON.parse(e.postData.contents);
         params = { ...params, ...postData };
       } catch (err) {
-        Logger.log('Error parsing POST data: ' + err);
+        Logger.log('Error parsing JSON POST data: ' + err);
       }
     }
 
@@ -84,15 +83,21 @@ function handleRequest(e) {
         result = { error: 'Unknown action: ' + action };
     }
 
-    response.content = JSON.stringify(result);
-    return ContentService.createTextOutput(response.content)
+    Logger.log('Result: ' + JSON.stringify(result));
+    
+    return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(response.headers);
+      .setHeaders({
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      });
 
   } catch (error) {
     Logger.log('Error in handleRequest: ' + error.toString());
     const errorResponse = {
-      error: 'Server error: ' + error.toString()
+      error: 'Server error: ' + error.toString(),
+      stack: error.stack
     };
     
     return ContentService.createTextOutput(JSON.stringify(errorResponse))
@@ -102,6 +107,25 @@ function handleRequest(e) {
         'Content-Type': 'application/json'
       });
   }
+}
+
+/**
+ * Parse FormData dari POST request
+ */
+function parseFormData(data) {
+  const params = {};
+  const pairs = data.split('&');
+  
+  for (let i = 0; i < pairs.length; i++) {
+    const pair = pairs[i].split('=');
+    if (pair.length === 2) {
+      const key = decodeURIComponent(pair[0]);
+      const value = decodeURIComponent(pair[1]);
+      params[key] = value;
+    }
+  }
+  
+  return params;
 }
 
 /**
@@ -519,18 +543,55 @@ function setupSpreadsheet() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const usersSheet = spreadsheet.getSheetByName(USERS_SHEET);
   
-  const adminRow = [
-    'ADMIN123',
-    'Admin User',
-    'admin@admin.admin',
-    'admin123',
-    'ADM123456',
-    'Teknik Informatika',
-    'admin',
-    new Date().toISOString()
-  ];
+  // Check if admin already exists
+  const data = usersSheet.getDataRange().getValues();
+  let adminExists = false;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][2] === 'admin@admin.admin') {
+      adminExists = true;
+      break;
+    }
+  }
   
-  usersSheet.appendRow(adminRow);
+  if (!adminExists) {
+    const adminRow = [
+      'ADMIN123',
+      'Admin User',
+      'admin@admin.admin',
+      'admin123',
+      'ADM123456',
+      'Teknik Informatika',
+      'admin',
+      new Date().toISOString()
+    ];
+    
+    usersSheet.appendRow(adminRow);
+  }
+  
+  // Add sample regular user
+  let userExists = false;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][2] === 'user@student.com') {
+      userExists = true;
+      break;
+    }
+  }
+  
+  if (!userExists) {
+    const userRow = [
+      'USER123',
+      'Mahasiswa User',
+      'user@student.com',
+      'user123',
+      'STD123456',
+      'Sistem Informasi',
+      'user',
+      new Date().toISOString()
+    ];
+    
+    usersSheet.appendRow(userRow);
+  }
   
   Logger.log('Spreadsheet setup complete');
+  return { message: 'Setup berhasil', adminUser: 'admin@admin.admin', regularUser: 'user@student.com' };
 }

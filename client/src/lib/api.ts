@@ -1,4 +1,4 @@
-// Google Apps Script API URL
+// Google Apps Script API URL (URL yang sudah Anda berikan)
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz8YWdcQSZlVkmsV6PIvh8E6vDeV1fnbaj51atRBjWAEa5NRhSveWmuSsBNSDGfzfT-/exec";
 
 export interface Post {
@@ -30,14 +30,44 @@ async function makeGoogleRequest(action: string, data: any = {}) {
   };
 
   try {
-    // Try POST request first
+    // Untuk GET requests yang sederhana
+    if (action === 'test' || action === 'getPosts') {
+      const params = new URLSearchParams();
+      params.append('action', action);
+      
+      const response = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`, {
+        method: 'GET',
+        redirect: 'follow'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      return result;
+    }
+
+    // Untuk POST requests dengan data
+    const formData = new FormData();
+    formData.append('action', action);
+    
+    // Append semua data ke FormData
+    Object.keys(data).forEach(key => {
+      if (data[key] !== undefined && data[key] !== null) {
+        formData.append(key, typeof data[key] === 'object' ? JSON.stringify(data[key]) : data[key]);
+      }
+    });
+
     const response = await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
-      mode: 'cors',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData)
+      body: formData,
+      redirect: 'follow'
     });
 
     if (!response.ok) {
@@ -53,27 +83,6 @@ async function makeGoogleRequest(action: string, data: any = {}) {
     return result;
   } catch (error) {
     console.error('Google Apps Script request failed:', error);
-    
-    // Fallback to GET request for some actions
-    if (action === 'getPosts' || action === 'test') {
-      try {
-        const params = new URLSearchParams({ action, ...data });
-        const getResponse = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`, {
-          method: 'GET',
-          mode: 'cors'
-        });
-        
-        if (getResponse.ok) {
-          const result = await getResponse.json();
-          if (!result.error) {
-            return result;
-          }
-        }
-      } catch (getError) {
-        console.error('GET fallback also failed:', getError);
-      }
-    }
-    
     throw error;
   }
 }
