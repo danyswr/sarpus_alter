@@ -183,8 +183,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash password before sending to Google Apps Script
       const hashedPassword = await hashPassword(userData.password);
       const userDataWithHashedPassword = {
-        ...userData,
-        password: hashedPassword
+        email: userData.email,
+        username: userData.username,
+        password: userData.password, // Send plain text for Google Apps Script compatibility
+        nim: userData.nim || "",
+        jurusan: userData.jurusan || "",
+        gender: userData.gender || "Male",
+        role: userData.role || "user"
       };
       
       const result = await callGoogleScript('register', userDataWithHashedPassword);
