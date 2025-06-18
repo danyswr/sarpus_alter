@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { ImageUpload } from "@/components/image-upload";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Post } from "@/lib/api";
@@ -34,11 +34,11 @@ export default function Dashboard() {
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["/api/posts"],
     enabled: !!user,
-  });
+  }) as { data: Post[], isLoading: boolean };
 
   const createPostMutation = useMutation({
-    mutationFn: (data: { judul: string; deskripsi: string; imageUrl?: string; idUsers: string }) =>
-      api.createPost(data),
+    mutationFn: (data: { judul: string; deskripsi: string; imageUrl?: string; userId: string }) =>
+      api.posts.createPost(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       setCreatePostOpen(false);
@@ -48,23 +48,32 @@ export default function Dashboard() {
 
   const likePostMutation = useMutation({
     mutationFn: ({ postId, type }: { postId: string; type: 'like' | 'dislike' }) =>
-      api.likePost(postId, user!.idUsers, type),
+      api.posts.likePost(postId, type),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
   });
 
   const deletePostMutation = useMutation({
-    mutationFn: (postId: string) => api.deletePost(postId, user!.idUsers),
+    mutationFn: (postId: string) => api.posts.deletePost(postId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
   });
 
   const uploadImageMutation = useMutation({
-    mutationFn: api.uploadImage,
-    onSuccess: (data) => {
-      setNewPost(prev => ({ ...prev, imageUrl: data.imageUrl }));
+    mutationFn: async (file: File) => {
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      return api.upload.uploadImage(base64, file.name);
+    },
+    onSuccess: (data: any) => {
+      if (data.imageUrl) {
+        setNewPost(prev => ({ ...prev, imageUrl: data.imageUrl }));
+      }
     },
   });
 
@@ -73,7 +82,7 @@ export default function Dashboard() {
 
     createPostMutation.mutate({
       ...newPost,
-      idUsers: user.idUsers,
+      userId: user.idUsers,
     });
   };
 
@@ -176,9 +185,9 @@ export default function Dashboard() {
             </Card>
           ) : (
             <div className="space-y-0">
-              {posts.map((post: Post) => (
+              {(posts as Post[]).map((post: Post) => (
                 <PostCard
-                  key={post.id || post.idPostingan}
+                  key={post.id}
                   post={post}
                   onLike={(postId, type) => likePostMutation.mutate({ postId, type })}
                   onDelete={(postId) => deletePostMutation.mutate(postId)}

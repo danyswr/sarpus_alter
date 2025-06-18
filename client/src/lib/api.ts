@@ -100,12 +100,12 @@ export const postsApi = {
     return apiCall('/posts', 'POST', postData);
   },
 
-  likePost: async (postId: string): Promise<ApiResponse> => {
-    return apiCall(`/posts/${postId}/like`, 'POST', { type: 'like' });
+  likePost: async (postId: string, type: 'like' | 'dislike'): Promise<ApiResponse> => {
+    return apiCall(`/posts/${postId}/like`, 'POST', { type });
   },
 
-  dislikePost: async (postId: string): Promise<ApiResponse> => {
-    return apiCall(`/posts/${postId}/like`, 'POST', { type: 'dislike' });
+  deletePost: async (postId: string): Promise<ApiResponse> => {
+    return apiCall(`/posts/${postId}`, 'DELETE');
   }
 };
 
