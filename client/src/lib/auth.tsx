@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { api } from "./api";
+import { authApi } from "./api";
 
 interface User {
   idUsers: string;
@@ -48,24 +48,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       console.log("API login attempt for:", email);
-      const result = await api.login(email, password);
+      const result = await authApi.login(email, password);
       console.log("API login result:", result);
       
       if (result.error) {
         throw new Error(result.error);
       }
 
-      if (!result.idUsers) {
+      if (!result.user?.id) {
         throw new Error("Data login tidak lengkap dari server");
       }
 
       const userData: User = {
-        idUsers: result.idUsers,
-        username: result.username,
-        email: result.email,
-        role: result.role,
-        nim: result.nim,
-        jurusan: result.jurusan
+        idUsers: result.user.id,
+        username: result.user.username,
+        email: result.user.email,
+        role: result.user.role,
+        nim: result.user.nim,
+        jurusan: result.user.jurusan
       };
 
       console.log("Setting user data:", userData);
@@ -79,19 +79,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (userData: RegisterData) => {
     try {
-      const result = await api.register(userData);
+      const result = await authApi.register(userData);
       
       if (result.error) {
         throw new Error(result.error);
       }
 
+      if (!result.user?.id) {
+        throw new Error("Data registrasi tidak lengkap dari server");
+      }
+
+      if (!result.user || !result.user.id) {
+        throw new Error("Data registrasi tidak lengkap dari server");
+      }
+
       const newUser: User = {
-        idUsers: result.idUsers,
-        username: result.username,
-        email: result.email,
-        role: result.role,
-        nim: result.nim,
-        jurusan: result.jurusan
+        idUsers: result.user.id,
+        username: result.user.username,
+        email: result.user.email,
+        role: result.user.role,
+        nim: result.user.nim || "",
+        jurusan: result.user.jurusan || ""
       };
 
       setUser(newUser);

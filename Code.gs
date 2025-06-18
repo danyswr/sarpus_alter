@@ -23,12 +23,20 @@ function doOptions(e) {
 
 function handleRequest(e) {
   try {
-    // Set CORS headers
+    // Create response dengan CORS headers
     var response = ContentService.createTextOutput();
     response.setMimeType(ContentService.MimeType.JSON);
     
+    // Set CORS headers untuk semua request
+    response.setHeaders({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400'
+    });
+    
     // Handle preflight OPTIONS request
-    if (e.method === "OPTIONS") {
+    if (e && e.method === "OPTIONS") {
       return response.setContent(JSON.stringify({ 
         status: "ok",
         message: "CORS preflight successful"
@@ -86,6 +94,11 @@ function handleRequest(e) {
     Logger.log("Error in handleRequest: " + error.toString());
     var errorResponse = ContentService.createTextOutput();
     errorResponse.setMimeType(ContentService.MimeType.JSON);
+    errorResponse.setHeaders({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    });
     errorResponse.setContent(JSON.stringify({ 
       error: "Server error: " + error.toString(),
       timestamp: new Date().toISOString()

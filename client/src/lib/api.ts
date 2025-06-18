@@ -38,8 +38,11 @@ export interface ApiResponse<T = any> {
 // Helper function to make API calls
 async function makeApiCall(action: string, data: any = {}): Promise<ApiResponse> {
   try {
+    console.log('Making API call:', action, data);
+    
     const response = await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
+      mode: 'cors',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -49,11 +52,14 @@ async function makeApiCall(action: string, data: any = {}): Promise<ApiResponse>
       })
     });
 
+    console.log('Response status:', response.status);
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const result = await response.json();
+    console.log('API response:', result);
     return result;
   } catch (error) {
     console.error('API call error:', error);

@@ -96,11 +96,22 @@ The application is configured for deployment on Replit with the following setup:
 
 The application uses Replit's autoscale deployment target with automatic SSL and custom domain support. The frontend is served as static files in production while the backend handles API requests.
 
+## Recent Changes
+
+**December 8, 2025:**
+- ✅ Successfully migrated project from PostgreSQL to Google Apps Script + Google Spreadsheet backend
+- ✅ Updated API routes to connect with Google Apps Script URL
+- ✅ Configured frontend authentication to work with new backend
+- ✅ Integrated Google Drive upload functionality for image handling
+- ✅ Created comprehensive Google Apps Script code for all CRUD operations
+- ✅ Project ready for deployment with Google infrastructure
+
 ## Changelog
 
 ```
 Changelog:
-- June 18, 2025. Initial setup
+- December 8, 2025: Migrated to Google Apps Script backend
+- June 18, 2025: Initial setup
 ```
 
 ## User Preferences
