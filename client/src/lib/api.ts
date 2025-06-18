@@ -33,7 +33,9 @@ export interface Comment {
   idComment: string;
   idPostingan: string;
   userId: string;
+  idUsers?: string; // Keep for backward compatibility
   commentText: string;
+  comment?: string; // Keep for backward compatibility  
   timestamp: string;
   username: string;
 }
