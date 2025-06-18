@@ -55,7 +55,7 @@ export default function Dashboard() {
   });
 
   const deletePostMutation = useMutation({
-    mutationFn: (postId: string) => api.posts.deletePost(postId),
+    mutationFn: (postId: string) => api.posts.deletePost(postId, user!.idUsers),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
@@ -130,36 +130,48 @@ export default function Dashboard() {
 
         <div className="max-w-2xl mx-auto py-6 px-4">
           {/* Create Post Card - Desktop */}
-          <Card className="hidden md:block mb-6">
+          <Card className="hidden md:block mb-6 border-2 border-dashed border-gray-200 hover:border-primary/50 transition-colors">
             <CardContent className="p-6">
-              <div className="flex space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold">
+              <div className="flex space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-bold text-lg">
                     {user.username.charAt(0).toUpperCase()}
                   </span>
                 </div>
                 <div className="flex-1">
-                  <Textarea
-                    placeholder="Apa yang ingin kamu sampaikan?"
-                    className="mb-3 resize-none"
-                    rows={3}
+                  <div 
+                    className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary transition-colors text-gray-500 text-center"
                     onClick={() => setCreatePostOpen(true)}
-                    readOnly
-                  />
-                  <div className="flex justify-between items-center">
+                  >
+                    <div className="space-y-2">
+                      <p className="text-lg">💭 Ada keluh kesah atau saran?</p>
+                      <p className="text-sm">Klik di sini untuk berbagi dengan komunitas</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center mt-4">
                     <div className="flex space-x-3">
-                      <Button variant="ghost" size="sm" className="text-secondary">
-                        📷 Gambar
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-secondary hover:bg-secondary/10"
+                        onClick={() => setCreatePostOpen(true)}
+                      >
+                        📷 Tambah Gambar
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-accent">
-                        😊 Emoji
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-accent hover:bg-accent/10"
+                        onClick={() => setCreatePostOpen(true)}
+                      >
+                        ✨ Buat Postingan
                       </Button>
                     </div>
                     <Button 
-                      className="btn-primary"
+                      className="btn-primary px-6"
                       onClick={() => setCreatePostOpen(true)}
                     >
-                      Posting
+                      Mulai Posting
                     </Button>
                   </div>
                 </div>
@@ -200,56 +212,142 @@ export default function Dashboard() {
 
       {/* Create Post Dialog */}
       <Dialog open={createPostOpen} onOpenChange={setCreatePostOpen}>
-        <DialogContent className="max-w-lg" aria-describedby="create-post-description">
-          <DialogHeader>
-            <DialogTitle>Buat Postingan Baru</DialogTitle>
-            <DialogDescription id="create-post-description">
-              Bagikan keluh kesah atau saran Anda dengan komunitas
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="create-post-description">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-xl font-bold flex items-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center mr-3">
+                <span className="text-white font-bold text-sm">
+                  {user.username.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              Buat Postingan Baru
+            </DialogTitle>
+            <DialogDescription id="create-post-description" className="text-gray-600">
+              Bagikan keluh kesah, saran, atau pengalaman Anda dengan komunitas mahasiswa
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Judul</label>
+          <div className="space-y-6">
+            {/* Judul Input */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center">
+                📝 Judul Postingan
+                <span className="text-red-500 ml-1">*</span>
+              </label>
               <Input
                 value={newPost.judul}
                 onChange={(e) => setNewPost(prev => ({ ...prev, judul: e.target.value }))}
-                placeholder="Masukkan judul postingan"
+                placeholder="Berikan judul yang menarik untuk postinganmu..."
+                className="text-base p-3 border-2 focus:border-primary"
               />
+              <p className="text-xs text-gray-500">Tips: Gunakan judul yang jelas dan deskriptif</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Deskripsi</label>
+            {/* Deskripsi Input */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center">
+                💬 Ceritakan Detail
+                <span className="text-red-500 ml-1">*</span>
+              </label>
               <Textarea
                 value={newPost.deskripsi}
                 onChange={(e) => setNewPost(prev => ({ ...prev, deskripsi: e.target.value }))}
-                placeholder="Ceritakan keluh kesah atau saranmu..."
-                rows={4}
+                placeholder="Ceritakan secara detail keluh kesah, saran, atau pengalamanmu di kampus..."
+                rows={6}
+                className="text-base p-3 border-2 focus:border-primary resize-none"
               />
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-gray-500">Jelaskan situasi, dampak, dan saran perbaikan</p>
+                <span className="text-xs text-gray-400">{newPost.deskripsi.length}/1000</span>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Gambar (Opsional)</label>
-              <ImageUpload
-                onImageUpload={handleImageUpload}
-                imageUrl={newPost.imageUrl}
-                onRemoveImage={() => setNewPost(prev => ({ ...prev, imageUrl: "" }))}
-              />
+            {/* Image Upload */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center">
+                📷 Tambah Gambar (Opsional)
+              </label>
+              <div className="border-2 border-dashed border-gray-200 rounded-lg p-1">
+                <ImageUpload
+                  onImageUpload={handleImageUpload}
+                  imageUrl={newPost.imageUrl}
+                  onRemoveImage={() => setNewPost(prev => ({ ...prev, imageUrl: "" }))}
+                />
+              </div>
+              {uploadImageMutation.isPending && (
+                <div className="flex items-center space-x-2 text-sm text-blue-600">
+                  <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                  <span>Mengupload gambar ke Google Drive...</span>
+                </div>
+              )}
+              <p className="text-xs text-gray-500">
+                Gambar akan disimpan secara aman di Google Drive. Maksimal 5MB.
+              </p>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4">
+            {/* Preview Post */}
+            {(newPost.judul.trim() || newPost.deskripsi.trim() || newPost.imageUrl) && (
+              <div className="bg-gray-50 border rounded-lg p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-gray-700">👀 Preview Postingan:</h4>
+                <div className="bg-white border rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-bold text-sm">
+                        {user.username.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="font-semibold text-gray-800">{user.username}</span>
+                        <span className="text-gray-500 text-sm">• sekarang</span>
+                      </div>
+                      {newPost.judul.trim() && (
+                        <h3 className="font-bold text-gray-900 mb-2">{newPost.judul}</h3>
+                      )}
+                      {newPost.deskripsi.trim() && (
+                        <p className="text-gray-700 mb-3 whitespace-pre-wrap">{newPost.deskripsi}</p>
+                      )}
+                      {newPost.imageUrl && (
+                        <img 
+                          src={newPost.imageUrl} 
+                          alt="Preview" 
+                          className="max-w-full h-auto rounded-lg border"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
               <Button 
                 variant="outline" 
-                onClick={() => setCreatePostOpen(false)}
+                onClick={() => {
+                  setCreatePostOpen(false);
+                  setNewPost({ judul: "", deskripsi: "", imageUrl: "" });
+                }}
+                className="px-6"
               >
                 Batal
               </Button>
               <Button 
-                className="btn-primary"
+                className="btn-primary px-6"
                 onClick={handleCreatePost}
                 disabled={createPostMutation.isPending || !newPost.judul.trim() || !newPost.deskripsi.trim()}
               >
-                {createPostMutation.isPending ? "Memposting..." : "Posting"}
+                {createPostMutation.isPending ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    <span>Memposting...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span>📢</span>
+                    <span>Publikasikan</span>
+                  </div>
+                )}
               </Button>
             </div>
           </div>
