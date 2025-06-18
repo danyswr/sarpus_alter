@@ -355,20 +355,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Image data is required" });
       }
 
-      const result = await callGoogleScript('uploadImage', { imageBase64, fileName });
-      
-      if (result.error) {
-        return res.status(500).json({ error: result.error });
-      }
+      // Try to upload to Google Drive via Google Apps Script
+      try {
+        const result = await callGoogleScript('uploadImage', { imageBase64, fileName });
+        
+        if (result.error) {
+          console.error("Google Apps Script upload error:", result.error);
+          // For now, return a placeholder response so posting can continue
+          return res.json({
+            message: "Image upload temporarily unavailable",
+            imageUrl: "", // Empty URL means no image
+            fileId: null,
+          });
+        }
 
-      res.json({
-        message: result.message || "Image uploaded successfully",
-        imageUrl: result.imageUrl,
-        fileId: result.fileId,
-      });
+        res.json({
+          message: result.message || "Image uploaded successfully",
+          imageUrl: result.imageUrl,
+          fileId: result.fileId,
+        });
+      } catch (uploadError) {
+        console.error("Upload to Google Drive failed:", uploadError);
+        // Allow posting to continue without image
+        res.json({
+          message: "Image upload temporarily unavailable",
+          imageUrl: "", // Empty URL means no image
+          fileId: null,
+        });
+      }
     } catch (error) {
       console.error("Image upload error:", error);
-      res.status(500).json({ error: "Failed to upload image: " + (error instanceof Error ? error.message : 'Unknown error') });
+      // Allow posting to continue without image
+      res.json({
+        message: "Image upload temporarily unavailable",
+        imageUrl: "", // Empty URL means no image
+        fileId: null,
+      });
     }
   });
 

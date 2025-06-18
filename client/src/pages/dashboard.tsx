@@ -69,14 +69,19 @@ export default function Dashboard() {
       return api.upload.uploadImage(base64, file.name);
     },
     onSuccess: (data: any) => {
-      if (data.imageUrl) {
+      // Only set imageUrl if upload was successful and we got a valid URL
+      if (data.imageUrl && data.imageUrl.trim() !== "") {
         setNewPost(prev => ({ ...prev, imageUrl: data.imageUrl }));
       }
+    },
+    onError: (error) => {
+      console.error("Image upload failed:", error);
+      // Continue without image - don't block posting
     },
   });
 
   const handleCreatePost = () => {
-    if (!user || !newPost.judul.trim() || !newPost.deskripsi.trim()) return;
+    if (!user || !newPost.deskripsi.trim()) return;
 
     createPostMutation.mutate({
       ...newPost,
@@ -224,7 +229,7 @@ export default function Dashboard() {
                     <Button 
                       className="btn-primary rounded-full px-6 py-2 font-bold"
                       onClick={handleCreatePost}
-                      disabled={createPostMutation.isPending || !newPost.judul.trim() || !newPost.deskripsi.trim() || newPost.deskripsi.length > 280}
+                      disabled={createPostMutation.isPending || !newPost.deskripsi.trim() || newPost.deskripsi.length > 280}
                     >
                       {createPostMutation.isPending ? "Posting..." : "Post"}
                     </Button>
@@ -243,7 +248,7 @@ export default function Dashboard() {
                 <p className="text-gray-500">Belum ada postingan. Buat postingan pertamamu!</p>
                 <Button 
                   className="btn-primary mt-4"
-                  onClick={() => setCreatePostOpen(true)}
+                  onClick={() => window.scrollTo(0, 0)}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Buat Postingan

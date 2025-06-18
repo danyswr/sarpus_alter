@@ -11,7 +11,7 @@
  */
 
 // Google Drive folder ID untuk menyimpan gambar
-const DRIVE_FOLDER_ID = "1mWUUou6QkdumcBT-Qizljc7T6s2jQxkw";
+var DRIVE_FOLDER_ID = "1mWUUou6QkdumcBT-Qizljc7T6s2jQxkw";
 
 function doGet(e) {
   return handleRequest(e);
