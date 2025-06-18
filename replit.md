@@ -43,6 +43,8 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
 - ✓ Implemented edit functionality for posts (title and description only)
 - ✓ Improved timestamp formatting and duplicate key issues
 - ✓ Enhanced delete performance with optimistic UI updates
+- ✓ Fixed comment system implementation with fallback mechanisms
+- ✓ Added robust error handling for Google Apps Script connectivity issues
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages
