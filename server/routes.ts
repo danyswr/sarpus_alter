@@ -1,9 +1,19 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 
 // Google Apps Script URL
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz8YWdcQSZlVkmsV6PIvh8E6vDeV1fnbaj51atRBjWAEa5NRhSveWmuSsBNSDGfzfT-/exec";
+
+// Password utility functions
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
+}
+
+async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  return bcrypt.compare(password, hashedPassword);
+}
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -92,6 +102,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Google Apps Script connection error:", gasError);
       }
 
+      // Check newly registered users with bcrypt comparison
+      for (const user of newlyRegisteredUsers) {
+        if (user.email.toLowerCase().trim() === email.toLowerCase().trim()) {
+          // For newly registered users, check against hashed password
+          if (user.hashedPassword && await verifyPassword(password, user.hashedPassword)) {
+            console.log("Login successful with hashed password for newly registered user:", email);
+            return res.json({
+              message: "Login berhasil",
+              user: {
+                idUsers: user.idUsers,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                nim: user.nim,
+                jurusan: user.jurusan
+              },
+            });
+          }
+          // Fallback to plain text comparison for immediate login after registration
+          else if (user.password === password) {
+            console.log("Login successful with fallback password for newly registered user:", email);
+            return res.json({
+              message: "Login berhasil",
+              user: {
+                idUsers: user.idUsers,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                nim: user.nim,
+                jurusan: user.jurusan
+              },
+            });
+          }
+        }
+      }
+
       // Fallback users (for development/testing)
       const fallbackUsers = [
         { email: "test@gmail.com", password: "123123123", idUsers: "USER_3", username: "test", role: "user", nim: "123312123", jurusan: "Hukum" },
@@ -133,16 +179,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userData = registerSchema.parse(req.body);
       
-      const result = await callGoogleScript('register', userData);
+      // Hash password before sending to Google Apps Script
+      const hashedPassword = await hashPassword(userData.password);
+      const userDataWithHashedPassword = {
+        ...userData,
+        password: hashedPassword
+      };
+      
+      const result = await callGoogleScript('register', userDataWithHashedPassword);
       
       if (result.error) {
         return res.status(400).json({ error: result.error });
       }
 
-      // Add to fallback list for immediate login capability
+      // Add to fallback list for immediate login capability (store original password for local fallback)
       const newUser = {
         email: result.email,
-        password: userData.password,
+        password: userData.password, // Store original password for local comparison
+        hashedPassword: hashedPassword, // Store hashed for future use
         idUsers: result.idUsers,
         username: result.username,
         role: result.role || "user",

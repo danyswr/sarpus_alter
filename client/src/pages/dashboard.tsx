@@ -178,7 +178,7 @@ export default function Dashboard() {
             <div className="space-y-0">
               {posts.map((post: Post) => (
                 <PostCard
-                  key={post.idPostingan}
+                  key={post.id || post.idPostingan}
                   post={post}
                   onLike={(postId, type) => likePostMutation.mutate({ postId, type })}
                   onDelete={(postId) => deletePostMutation.mutate(postId)}
@@ -191,9 +191,12 @@ export default function Dashboard() {
 
       {/* Create Post Dialog */}
       <Dialog open={createPostOpen} onOpenChange={setCreatePostOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" aria-describedby="create-post-description">
           <DialogHeader>
             <DialogTitle>Buat Postingan Baru</DialogTitle>
+            <DialogDescription id="create-post-description">
+              Bagikan keluh kesah atau saran Anda dengan komunitas
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
