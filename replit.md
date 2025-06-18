@@ -1,122 +1,42 @@
-# FeedbackU - Student Feedback Platform
+# Mahasiswa Feedback Platform
 
-## Overview
+## Project Overview
+Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk posting seperti Twitter. Sistem memiliki role-based access dengan user dan admin.
 
-FeedbackU is a modern student feedback platform built with a React frontend and Express backend. The application allows students to create posts, share feedback, and interact with content through likes/dislikes. It features role-based access control with admin capabilities and uses PostgreSQL as the database with Drizzle ORM for data management.
+## Architecture
+- **Frontend**: React + TypeScript + Vite + Tailwind CSS
+- **Backend**: Express.js server sebagai proxy
+- **Database**: Google Sheets via Google Apps Script
+- **Storage**: Google Drive untuk upload gambar
+- **Authentication**: Session-based dengan role management
 
-## System Architecture
+## Key Features
+- Login/Register dengan role management (user/admin)
+- Posting keluh kesah dengan like/dislike
+- Upload gambar ke Google Drive
+- Admin dashboard untuk melihat statistik dan postingan populer
+- Real-time data sync dengan Google Sheets
 
-The application follows a full-stack architecture with Google Apps Script as the backend database:
+## External Services
+- Google Apps Script URL: https://script.google.com/macros/s/AKfycbz8YWdcQSZlVkmsV6PIvh8E6vDeV1fnbaj51atRBjWAEa5NRhSveWmuSsBNSDGfzfT-/exec
+- Google Drive Folder: https://drive.google.com/drive/folders/1mWUUou6QkdumcBT-Qizljc7T6s2jQxkw?usp=sharing
 
-### Frontend Architecture
-- **Framework**: React 18 with TypeScript
-- **Styling**: Tailwind CSS with Shadcn/UI components
-- **State Management**: TanStack Query for server state management
-- **Routing**: Wouter for client-side routing
-- **Build Tool**: Vite for development and build process
-- **UI Components**: Radix UI primitives with custom styling
+## Database Schema (Google Sheets)
 
-### Backend Architecture
-- **Server**: Express.js with Google Apps Script integration
-- **Database**: Google Spreadsheet with Google Apps Script API
-- **Image Storage**: Google Drive with public access links
-- **Authentication**: Express API proxy to Google Apps Script
-- **API Integration**: Express server proxies requests to Google Apps Script
-- **File Structure**: Full-stack with Express backend and React frontend
+### Users Sheet
+- idUsers, username, email, password, role, nim, jurusan, gender, bio, location, website, createdAt
 
-## Key Components
-
-### Authentication System
-- User registration and login functionality
-- Role-based access control (user/admin)
-- Session-based authentication
-- Protected routes for authenticated users
-
-### Post Management
-- Create, read, update, delete posts
-- Image upload support
-- Like/dislike functionality with user tracking
-- Post filtering and search capabilities
-
-### User Roles
-- **Regular Users**: Can create posts, like/dislike content, manage their profile
-- **Admin Users**: Additional privileges to manage all posts and view analytics
-
-### Database Schema
-The application uses Google Spreadsheet with two main sheets:
-- **Users Sheet**: Stores user information including credentials, student details (NIM, jurusan), and roles
-- **Posts Sheet**: Stores post content, metadata, and engagement metrics (likes/dislikes with user tracking)
-
-### Google Integration
-- **Google Apps Script**: Serves as the backend API handling all database operations
-- **Google Drive**: Stores uploaded images with public access links
-- **Google Sheets**: Acts as the primary database with structured data storage
-
-## Data Flow
-
-1. **User Registration/Login**: Frontend makes direct requests to Google Apps Script web app
-2. **Post Creation**: Posts are stored in Google Sheets with image URLs from Google Drive
-3. **Post Interaction**: Like/dislike actions update spreadsheet cells with user tracking
-4. **Image Upload**: Files are converted to base64 and uploaded to Google Drive folder
-5. **Admin Operations**: Role-based access control managed through spreadsheet data
-
-## External Dependencies
-
-### Frontend Dependencies
-- **React Ecosystem**: React, React DOM, React Hook Form
-- **UI Libraries**: Radix UI components, Lucide React icons
-- **State Management**: TanStack React Query
-- **Styling**: Tailwind CSS, class-variance-authority
-- **Form Validation**: Zod schema validation
-- **Date Handling**: date-fns
-
-### Backend Dependencies
-- **Server Framework**: Express.js with middleware
-- **Database**: Drizzle ORM with PostgreSQL adapter
-- **Development Tools**: tsx for TypeScript execution, esbuild for production builds
-- **Session Management**: connect-pg-simple for PostgreSQL session store
-
-## Deployment Strategy
-
-The application is configured for deployment on Replit with the following setup:
-
-### Development Environment
-- **Command**: `npm run dev` - Runs the application in development mode
-- **Port**: 5000 (configured in .replit)
-- **Hot Reload**: Vite HMR for frontend, tsx watch mode for backend
-
-### Production Build
-- **Build Process**: `npm run build` - Builds frontend assets and bundles backend
-- **Start Command**: `npm run start` - Runs the production server
-- **Database**: PostgreSQL module configured in Replit environment
-
-### Database Migration
-- **Schema Management**: Drizzle Kit for database migrations
-- **Command**: `npm run db:push` - Pushes schema changes to database
-- **Configuration**: Uses DATABASE_URL environment variable
-
-The application uses Replit's autoscale deployment target with automatic SSL and custom domain support. The frontend is served as static files in production while the backend handles API requests.
+### Posting Sheet  
+- idPostingan, idUsers, judul, deskripsi, imageUrl, timestamp, likeCount, dislikeCount
 
 ## Recent Changes
-
-**December 8, 2025:**
-- ✅ Successfully migrated project from PostgreSQL to Google Apps Script + Google Spreadsheet backend
-- ✅ Updated API routes to connect with Google Apps Script URL
-- ✅ Configured frontend authentication to work with new backend
-- ✅ Integrated Google Drive upload functionality for image handling
-- ✅ Created comprehensive Google Apps Script code for all CRUD operations
-- ✅ Project ready for deployment with Google infrastructure
-
-## Changelog
-
-```
-Changelog:
-- December 8, 2025: Migrated to Google Apps Script backend
-- June 18, 2025: Initial setup
-```
+- Fixed API export issue in client/src/lib/api.ts
+- Corrected Express server routes to handle Google Apps Script response format
+- Created complete Google Apps Script (Code.gs) with all required functions
+- Updated authentication flow to properly parse user data from Google Sheets
+- Configured Google Drive integration for image uploads
 
 ## User Preferences
-
-```
-Preferred communication style: Simple, everyday language.
-```
+- Language: Indonesian for UI text and error messages
+- Development approach: Focus on functionality and data integrity
+- Clean, readable code structure with proper error handling

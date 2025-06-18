@@ -69,9 +69,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: result.error });
       }
 
+      // Google Apps Script returns user data directly, not wrapped in 'user' object
       res.json({
         message: result.message || "Login berhasil",
-        user: result.user,
+        user: {
+          idUsers: result.idUsers,
+          username: result.username,
+          email: result.email,
+          role: result.role,
+          nim: result.nim,
+          jurusan: result.jurusan
+        },
       });
     } catch (error) {
       console.error("Login error:", error);
@@ -91,7 +99,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         message: result.message || "Registrasi berhasil",
-        user: result.user,
+        user: {
+          idUsers: result.idUsers,
+          username: result.username,
+          email: result.email,
+          role: result.role,
+          nim: result.nim,
+          jurusan: result.jurusan
+        },
       });
     } catch (error) {
       console.error("Register error:", error);
@@ -108,7 +123,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: result.error });
       }
 
-      res.json(result.posts || []);
+      // Google Apps Script returns posts directly as array
+      res.json(Array.isArray(result) ? result : result.posts || []);
     } catch (error) {
       console.error("Get posts error:", error);
       res.status(500).json({ error: "Failed to fetch posts: " + (error instanceof Error ? error.message : 'Unknown error') });

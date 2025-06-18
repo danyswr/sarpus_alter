@@ -1,13 +1,11 @@
 /**
- * Google Apps Script untuk Platform Feedback Mahasiswa
+ * Google Apps Script untuk Mahasiswa Feedback Platform - FINAL VERSION WITH IMPROVED CORS
  * Deploy sebagai web app dengan "Execute as: Me" dan "Who has access: Anyone"
  * 
  * STRUKTUR SPREADSHEET:
- * Sheet "Users": ID Users, Email, Username, Password, NIM, Gender, Jurusan, Role, TimeStamp
- * Sheet "Posting": ID Users, ID Postingan, timestamp, Judul, Deskripsi, Like, Dislike
+ * Sheet "Users": idUsers, username, email, password, role, nim, jurusan, gender, bio, location, website, createdAt
+ * Sheet "Posting": idPostingan, idUsers, judul, deskripsi, imageUrl, timestamp, likeCount, dislikeCount
  */
-
-const GOOGLE_DRIVE_FOLDER_ID = "1mWUUou6QkdumcBT-Qizljc7T6s2jQxkw"; // ID folder Google Drive
 
 function doGet(e) {
   return handleRequest(e);
@@ -23,29 +21,26 @@ function doOptions(e) {
 
 function handleRequest(e) {
   try {
-    // Create response dengan CORS headers
+    // Create response dengan CORS headers yang lebih lengkap
     var response = ContentService.createTextOutput();
     response.setMimeType(ContentService.MimeType.JSON);
-    
-    // Set CORS headers untuk semua request
-    response.setHeaders({
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Max-Age': '86400'
-    });
-    
+
     // Handle preflight OPTIONS request
-    if (e && e.method === "OPTIONS") {
+    if (e.method === "OPTIONS") {
       return response.setContent(JSON.stringify({ 
         status: "ok",
         message: "CORS preflight successful"
       }));
     }
 
+    // Dapatkan action
     var action = getAction(e);
     Logger.log("Action: " + action);
     Logger.log("Method: " + e.method);
+    Logger.log("Parameters: " + JSON.stringify(e.parameter));
+    if (e.postData) {
+      Logger.log("POST data: " + e.postData.contents);
+    }
 
     var result = {};
 
@@ -60,7 +55,7 @@ function handleRequest(e) {
         result = handleRegister(e);
         break;
       case "getPosts":
-        result = handleGetPosts(e);
+        result = handleGetPosts();
         break;
       case "createPost":
         result = handleCreatePost(e);
@@ -71,8 +66,8 @@ function handleRequest(e) {
       case "dislikePost":
         result = handleDislikePost(e);
         break;
-      case "uploadImage":
-        result = handleUploadImage(e);
+      case "deletePost":
+        result = handleDeletePost(e);
         break;
       case "getProfile":
         result = handleGetProfile(e);
@@ -80,8 +75,11 @@ function handleRequest(e) {
       case "updateProfile":
         result = handleUpdateProfile(e);
         break;
+      case "uploadImage":
+        result = handleUploadImage(e);
+        break;
       case "getAdminStats":
-        result = handleGetAdminStats(e);
+        result = handleGetAdminStats();
         break;
       default:
         result = { error: "Action tidak dikenal: " + action };
@@ -94,11 +92,6 @@ function handleRequest(e) {
     Logger.log("Error in handleRequest: " + error.toString());
     var errorResponse = ContentService.createTextOutput();
     errorResponse.setMimeType(ContentService.MimeType.JSON);
-    errorResponse.setHeaders({
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-    });
     errorResponse.setContent(JSON.stringify({ 
       error: "Server error: " + error.toString(),
       timestamp: new Date().toISOString()
@@ -108,10 +101,12 @@ function handleRequest(e) {
 }
 
 function getAction(e) {
+  // Coba dari GET parameters dulu
   if (e.parameter && e.parameter.action) {
     return e.parameter.action;
   }
 
+  // Coba dari POST body
   if (e.postData && e.postData.contents) {
     try {
       var postData = JSON.parse(e.postData.contents);
@@ -122,17 +117,6 @@ function getAction(e) {
   }
 
   return "test";
-}
-
-function getData(e) {
-  if (e.postData && e.postData.contents) {
-    try {
-      return JSON.parse(e.postData.contents);
-    } catch (parseError) {
-      Logger.log("Parse error: " + parseError.toString());
-    }
-  }
-  return e.parameter || {};
 }
 
 function testConnection() {
@@ -147,9 +131,12 @@ function testConnection() {
 
 function handleLogin(e) {
   try {
-    var data = getData(e);
-    var email = data.email;
-    var password = data.password;
+    var credentials = getCredentials(e);
+    var email = credentials.email;
+    var password = credentials.password;
+
+    Logger.log("Login attempt for: " + email);
+    Logger.log("Password received: " + (password ? "Yes (length: " + password.length + ")" : "No"));
 
     if (!email || !password) {
       return { error: "Email dan password harus diisi" };
@@ -162,45 +149,54 @@ function handleLogin(e) {
       return { error: "Sheet Users tidak ditemukan" };
     }
 
-    var users = usersSheet.getDataRange().getValues();
-    var headers = users[0];
+    var data = usersSheet.getDataRange().getValues();
+    Logger.log("Total users in sheet: " + (data.length - 1));
+    
+    if (data.length < 2) {
+      return { error: "Tidak ada data user" };
+    }
 
-    // Cari kolom
-    var emailCol = headers.indexOf("Email");
-    var passwordCol = headers.indexOf("Password");
-    var idCol = headers.indexOf("ID Users");
-    var usernameCol = headers.indexOf("Username");
-    var roleCol = headers.indexOf("Role");
-    var nimCol = headers.indexOf("NIM");
-    var jurusanCol = headers.indexOf("Jurusan");
-    var genderCol = headers.indexOf("Gender");
+    var headers = data[0];
+    var emailCol = findColumn(headers, "email");
+    var passwordCol = findColumn(headers, "password");
+
+    if (emailCol === -1 || passwordCol === -1) {
+      return { error: "Kolom email atau password tidak ditemukan" };
+    }
 
     // Cari user berdasarkan email
-    for (var i = 1; i < users.length; i++) {
-      var user = users[i];
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var userEmail = row[emailCol];
+      var userPassword = row[passwordCol];
       
-      if (user[emailCol] && user[emailCol].toString().toLowerCase() === email.toLowerCase()) {
-        // Cek password
-        if (user[passwordCol] === password) {
+      if (userEmail && userEmail.toString().toLowerCase() === email.toLowerCase()) {
+        Logger.log("User found! Checking password...");
+        
+        // Check password - support plain text
+        if (userPassword.toString() === password.toString()) {
+          Logger.log("Password match!");
+          
           return {
-            success: true,
             message: "Login berhasil",
-            user: {
-              id: user[idCol] || "USER" + Date.now(),
-              username: user[usernameCol] || email.split('@')[0],
-              email: email,
-              role: user[roleCol] || "user",
-              nim: user[nimCol] || "",
-              jurusan: user[jurusanCol] || "",
-              gender: user[genderCol] || "Male"
-            }
+            idUsers: row[findColumn(headers, "idUsers")] || "USER_" + i,
+            username: row[findColumn(headers, "username")] || email.split('@')[0],
+            email: email,
+            role: row[findColumn(headers, "role")] || "user",
+            nim: row[findColumn(headers, "nim")] || "",
+            jurusan: row[findColumn(headers, "jurusan")] || "",
+            bio: row[findColumn(headers, "bio")] || "",
+            location: row[findColumn(headers, "location")] || "",
+            website: row[findColumn(headers, "website")] || ""
           };
         } else {
+          Logger.log("Password mismatch!");
           return { error: "Password salah" };
         }
       }
     }
 
+    Logger.log("User not found with email: " + email);
     return { error: "Email tidak ditemukan" };
 
   } catch (error) {
@@ -211,9 +207,9 @@ function handleLogin(e) {
 
 function handleRegister(e) {
   try {
-    var data = getData(e);
+    var userData = getUserData(e);
 
-    if (!data.email || !data.username || !data.password) {
+    if (!userData.email || !userData.username || !userData.password) {
       return { error: "Email, username, dan password harus diisi" };
     }
 
@@ -223,51 +219,51 @@ function handleRegister(e) {
     if (!usersSheet) {
       // Buat sheet Users jika belum ada
       usersSheet = spreadsheet.insertSheet("Users");
-      usersSheet.getRange(1, 1, 1, 9).setValues([[
-        "ID Users", "Email", "Username", "Password", "NIM", "Gender", "Jurusan", "Role", "TimeStamp"
+      // Tambah header
+      usersSheet.getRange(1, 1, 1, 12).setValues([[
+        "idUsers", "username", "email", "password", "role", "nim", "jurusan", "gender", "bio", "location", "website", "createdAt"
       ]]);
     }
 
     // Cek apakah email sudah ada
-    var users = usersSheet.getDataRange().getValues();
-    var headers = users[0];
-    var emailCol = headers.indexOf("Email");
+    var data = usersSheet.getDataRange().getValues();
+    var headers = data[0];
+    var emailCol = findColumn(headers, "email");
 
-    for (var i = 1; i < users.length; i++) {
-      if (users[i][emailCol] === data.email) {
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][emailCol] === userData.email) {
         return { error: "Email sudah terdaftar" };
       }
     }
 
     // Tambah user baru
-    var newId = "USER" + Date.now();
+    var newId = "USER_" + Date.now();
     
     var newRow = [
-      newId,                           // ID Users
-      data.email,                      // Email
-      data.username,                   // Username
-      data.password,                   // Password
-      data.nim || "",                  // NIM
-      data.gender || "Male",           // Gender
-      data.jurusan || "",              // Jurusan
-      "user",                          // Role
-      new Date().toISOString()         // TimeStamp
+      newId,                        // idUsers
+      userData.username,            // username
+      userData.email,               // email
+      userData.password,            // password
+      userData.role || "user",      // role
+      userData.nim || "",           // nim
+      userData.jurusan || "",       // jurusan
+      userData.gender || "Male",    // gender
+      "",                           // bio
+      "",                           // location
+      "",                           // website
+      new Date()                    // createdAt
     ];
 
     usersSheet.appendRow(newRow);
 
     return {
-      success: true,
       message: "Registrasi berhasil",
-      user: {
-        id: newId,
-        username: data.username,
-        email: data.email,
-        role: "user",
-        nim: data.nim || "",
-        jurusan: data.jurusan || "",
-        gender: data.gender || "Male"
-      }
+      idUsers: newId,
+      username: userData.username,
+      email: userData.email,
+      role: userData.role || "user",
+      nim: userData.nim || "",
+      jurusan: userData.jurusan || ""
     };
 
   } catch (error) {
@@ -276,7 +272,7 @@ function handleRegister(e) {
   }
 }
 
-function handleGetPosts(e) {
+function handleGetPosts() {
   try {
     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     var postingSheet = spreadsheet.getSheetByName("Posting");
@@ -285,81 +281,67 @@ function handleGetPosts(e) {
     if (!postingSheet) {
       // Buat sheet Posting jika belum ada
       postingSheet = spreadsheet.insertSheet("Posting");
-      postingSheet.getRange(1, 1, 1, 7).setValues([[
-        "ID Users", "ID Postingan", "timestamp", "Judul", "Deskripsi", "Like", "Dislike"
+      postingSheet.getRange(1, 1, 1, 8).setValues([[
+        "idPostingan", "idUsers", "judul", "deskripsi", "imageUrl", "timestamp", "likeCount", "dislikeCount"
       ]]);
-      return { success: true, posts: [] };
+      return []; // Return empty array untuk sheet baru
     }
 
-    var posts = postingSheet.getDataRange().getValues();
-    var users = usersSheet ? usersSheet.getDataRange().getValues() : [];
+    var postData = postingSheet.getDataRange().getValues();
+    var userData = usersSheet ? usersSheet.getDataRange().getValues() : [];
 
-    if (posts.length < 2) {
-      return { success: true, posts: [] };
+    if (postData.length < 2) {
+      return []; // Return empty array jika tidak ada posts
     }
 
-    var postHeaders = posts[0];
-    var userHeaders = users[0] || [];
-    var result = [];
+    var postHeaders = postData[0];
+    var userHeaders = userData[0] || [];
+    var posts = [];
 
-    // Mapping kolom posts
-    var idUsersCol = postHeaders.indexOf("ID Users");
-    var idPostinganCol = postHeaders.indexOf("ID Postingan");
-    var timestampCol = postHeaders.indexOf("timestamp");
-    var judulCol = postHeaders.indexOf("Judul");
-    var deskripsiCol = postHeaders.indexOf("Deskripsi");
-    var likeCol = postHeaders.indexOf("Like");
-    var dislikeCol = postHeaders.indexOf("Dislike");
-
-    // Mapping kolom users
-    var userIdCol = userHeaders.indexOf("ID Users");
-    var usernameCol = userHeaders.indexOf("Username");
-
-    for (var i = 1; i < posts.length; i++) {
-      var post = posts[i];
-      var username = "Anonymous";
+    for (var i = 1; i < postData.length; i++) {
+      var row = postData[i];
+      var post = {
+        id: row[findColumn(postHeaders, "idPostingan")] || "POST_" + i,
+        userId: row[findColumn(postHeaders, "idUsers")] || "",
+        timestamp: row[findColumn(postHeaders, "timestamp")] || new Date(),
+        judul: row[findColumn(postHeaders, "judul")] || "",
+        deskripsi: row[findColumn(postHeaders, "deskripsi")] || "",
+        imageUrl: row[findColumn(postHeaders, "imageUrl")] || "",
+        likes: parseInt(row[findColumn(postHeaders, "likeCount")] || 0),
+        dislikes: parseInt(row[findColumn(postHeaders, "dislikeCount")] || 0),
+        username: "Anonymous"
+      };
 
       // Cari username dari Users sheet
-      if (users.length > 1 && post[idUsersCol]) {
-        for (var j = 1; j < users.length; j++) {
-          if (users[j][userIdCol] === post[idUsersCol]) {
-            username = users[j][usernameCol] || "Anonymous";
+      if (userData.length > 1 && post.userId) {
+        var userIdCol = findColumn(userHeaders, "idUsers");
+        var usernameCol = findColumn(userHeaders, "username");
+
+        for (var j = 1; j < userData.length; j++) {
+          if (userData[j][userIdCol] === post.userId) {
+            post.username = userData[j][usernameCol] || "Anonymous";
             break;
           }
         }
       }
 
-      result.push({
-        id: post[idPostinganCol] || "POST" + i,
-        userId: post[idUsersCol] || "",
-        username: username,
-        timestamp: post[timestampCol] || new Date(),
-        judul: post[judulCol] || "",
-        deskripsi: post[deskripsiCol] || "",
-        likes: parseInt(post[likeCol] || 0),
-        dislikes: parseInt(post[dislikeCol] || 0)
-      });
+      posts.push(post);
     }
 
-    // Sort berdasarkan timestamp terbaru
-    result.sort(function(a, b) {
-      return new Date(b.timestamp) - new Date(a.timestamp);
-    });
-
-    return { success: true, posts: result };
+    return posts;
 
   } catch (error) {
     Logger.log("Get posts error: " + error.toString());
-    return { error: "Error mengambil posts: " + error.toString() };
+    return [];
   }
 }
 
 function handleCreatePost(e) {
   try {
-    var data = getData(e);
+    var postData = getPostData(e);
 
-    if (!data.userId || !data.deskripsi) {
-      return { error: "User ID dan deskripsi harus diisi" };
+    if (!postData.userId || !postData.deskripsi) {
+      return { error: "userId dan deskripsi harus diisi" };
     }
 
     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -368,82 +350,56 @@ function handleCreatePost(e) {
     if (!postingSheet) {
       // Buat sheet Posting jika belum ada
       postingSheet = spreadsheet.insertSheet("Posting");
-      postingSheet.getRange(1, 1, 1, 7).setValues([[
-        "ID Users", "ID Postingan", "timestamp", "Judul", "Deskripsi", "Like", "Dislike"
+      postingSheet.getRange(1, 1, 1, 8).setValues([[
+        "idPostingan", "idUsers", "judul", "deskripsi", "imageUrl", "timestamp", "likeCount", "dislikeCount"
       ]]);
     }
 
-    var newId = "POST" + Date.now();
+    var newId = "POST_" + Date.now();
     var newRow = [
-      data.userId,                     // ID Users
-      newId,                           // ID Postingan
-      new Date().toISOString(),        // timestamp
-      data.judul || "Post",            // Judul
-      data.deskripsi,                  // Deskripsi
-      0,                               // Like
-      0                                // Dislike
+      newId,                        // idPostingan
+      postData.userId,              // idUsers
+      postData.judul || "",         // judul
+      postData.deskripsi,           // deskripsi
+      postData.imageUrl || "",      // imageUrl
+      new Date(),                   // timestamp
+      0,                            // likeCount
+      0                             // dislikeCount
     ];
 
     postingSheet.appendRow(newRow);
 
     return {
-      success: true,
-      message: "Post berhasil dibuat",
-      postId: newId
+      message: "Postingan berhasil dibuat",
+      post: {
+        id: newId,
+        userId: postData.userId,
+        judul: postData.judul || "",
+        deskripsi: postData.deskripsi,
+        imageUrl: postData.imageUrl || "",
+        timestamp: new Date(),
+        likes: 0,
+        dislikes: 0
+      }
     };
 
   } catch (error) {
     Logger.log("Create post error: " + error.toString());
-    return { error: "Error membuat post: " + error.toString() };
+    return { error: "Error membuat postingan: " + error.toString() };
   }
 }
 
 function handleLikePost(e) {
-  try {
-    var data = getData(e);
-    var postId = data.postId;
-
-    if (!postId) {
-      return { error: "Post ID harus diisi" };
-    }
-
-    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    var postingSheet = spreadsheet.getSheetByName("Posting");
-
-    if (!postingSheet) {
-      return { error: "Sheet Posting tidak ditemukan" };
-    }
-
-    var posts = postingSheet.getDataRange().getValues();
-    var headers = posts[0];
-    var idPostinganCol = headers.indexOf("ID Postingan");
-    var likeCol = headers.indexOf("Like");
-
-    // Cari post berdasarkan ID
-    for (var i = 1; i < posts.length; i++) {
-      if (posts[i][idPostinganCol] === postId) {
-        var currentLikes = parseInt(posts[i][likeCol] || 0);
-        postingSheet.getRange(i + 1, likeCol + 1).setValue(currentLikes + 1);
-        
-        return {
-          success: true,
-          message: "Post berhasil di-like",
-          newLikeCount: currentLikes + 1
-        };
-      }
-    }
-
-    return { error: "Post tidak ditemukan" };
-
-  } catch (error) {
-    Logger.log("Like post error: " + error.toString());
-    return { error: "Error like post: " + error.toString() };
-  }
+  return handleLikeDislike(e, "like");
 }
 
 function handleDislikePost(e) {
+  return handleLikeDislike(e, "dislike");
+}
+
+function handleLikeDislike(e, type) {
   try {
-    var data = getData(e);
+    var data = getLikeData(e);
     var postId = data.postId;
 
     if (!postId) {
@@ -457,21 +413,31 @@ function handleDislikePost(e) {
       return { error: "Sheet Posting tidak ditemukan" };
     }
 
-    var posts = postingSheet.getDataRange().getValues();
-    var headers = posts[0];
-    var idPostinganCol = headers.indexOf("ID Postingan");
-    var dislikeCol = headers.indexOf("Dislike");
+    var postData = postingSheet.getDataRange().getValues();
+    var headers = postData[0];
+    var idCol = findColumn(headers, "idPostingan");
+    var likeCol = findColumn(headers, "likeCount");
+    var dislikeCol = findColumn(headers, "dislikeCount");
 
-    // Cari post berdasarkan ID
-    for (var i = 1; i < posts.length; i++) {
-      if (posts[i][idPostinganCol] === postId) {
-        var currentDislikes = parseInt(posts[i][dislikeCol] || 0);
-        postingSheet.getRange(i + 1, dislikeCol + 1).setValue(currentDislikes + 1);
-        
+    for (var i = 1; i < postData.length; i++) {
+      if (postData[i][idCol] === postId) {
+        var currentLikes = parseInt(postData[i][likeCol] || 0);
+        var currentDislikes = parseInt(postData[i][dislikeCol] || 0);
+
+        if (type === "like") {
+          currentLikes += 1;
+        } else {
+          currentDislikes += 1;
+        }
+
+        // Update spreadsheet
+        postingSheet.getRange(i + 1, likeCol + 1).setValue(currentLikes);
+        postingSheet.getRange(i + 1, dislikeCol + 1).setValue(currentDislikes);
+
         return {
-          success: true,
-          message: "Post berhasil di-dislike",
-          newDislikeCount: currentDislikes + 1
+          message: "Berhasil update " + type,
+          newLikeCount: currentLikes,
+          newDislikeCount: currentDislikes
         };
       }
     }
@@ -479,53 +445,56 @@ function handleDislikePost(e) {
     return { error: "Post tidak ditemukan" };
 
   } catch (error) {
-    Logger.log("Dislike post error: " + error.toString());
-    return { error: "Error dislike post: " + error.toString() };
+    Logger.log("Like/Dislike error: " + error.toString());
+    return { error: "Error update like/dislike: " + error.toString() };
   }
 }
 
-function handleUploadImage(e) {
+function handleDeletePost(e) {
   try {
-    var data = getData(e);
-    var imageBase64 = data.imageBase64;
-    var fileName = data.fileName || "image_" + Date.now() + ".png";
+    var data = getPostDeleteData(e);
+    var postId = data.postId;
+    var userId = data.userId;
 
-    if (!imageBase64) {
-      return { error: "Data gambar harus diisi" };
+    if (!postId || !userId) {
+      return { error: "Post ID dan User ID harus diisi" };
     }
 
-    // Decode base64
-    var blob = Utilities.newBlob(
-      Utilities.base64Decode(imageBase64.split(',')[1] || imageBase64),
-      'image/png',
-      fileName
-    );
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    var postingSheet = spreadsheet.getSheetByName("Posting");
 
-    // Upload ke Google Drive
-    var folder = DriveApp.getFolderById(GOOGLE_DRIVE_FOLDER_ID);
-    var file = folder.createFile(blob);
-    
-    // Set file sebagai public
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
-    var imageUrl = "https://drive.google.com/uc?id=" + file.getId();
+    if (!postingSheet) {
+      return { error: "Sheet Posting tidak ditemukan" };
+    }
 
-    return {
-      success: true,
-      message: "Gambar berhasil di-upload",
-      imageUrl: imageUrl,
-      fileId: file.getId()
-    };
+    var postData = postingSheet.getDataRange().getValues();
+    var headers = postData[0];
+    var idCol = findColumn(headers, "idPostingan");
+    var userIdCol = findColumn(headers, "idUsers");
+
+    for (var i = 1; i < postData.length; i++) {
+      if (postData[i][idCol] === postId) {
+        // Check if user owns the post or is admin
+        if (postData[i][userIdCol] === userId) {
+          postingSheet.deleteRow(i + 1);
+          return { message: "Postingan berhasil dihapus" };
+        } else {
+          return { error: "Anda tidak memiliki izin untuk menghapus postingan ini" };
+        }
+      }
+    }
+
+    return { error: "Post tidak ditemukan" };
 
   } catch (error) {
-    Logger.log("Upload image error: " + error.toString());
-    return { error: "Error upload gambar: " + error.toString() };
+    Logger.log("Delete post error: " + error.toString());
+    return { error: "Error menghapus postingan: " + error.toString() };
   }
 }
 
 function handleGetProfile(e) {
   try {
-    var data = getData(e);
+    var data = getProfileData(e);
     var userId = data.userId;
 
     if (!userId) {
@@ -539,23 +508,23 @@ function handleGetProfile(e) {
       return { error: "Sheet Users tidak ditemukan" };
     }
 
-    var users = usersSheet.getDataRange().getValues();
-    var headers = users[0];
-    var idCol = headers.indexOf("ID Users");
+    var userData = usersSheet.getDataRange().getValues();
+    var headers = userData[0];
+    var idCol = findColumn(headers, "idUsers");
 
-    // Cari user berdasarkan ID
-    for (var i = 1; i < users.length; i++) {
-      if (users[i][idCol] === userId) {
+    for (var i = 1; i < userData.length; i++) {
+      if (userData[i][idCol] === userId) {
         return {
-          success: true,
           user: {
-            id: users[i][headers.indexOf("ID Users")],
-            email: users[i][headers.indexOf("Email")],
-            username: users[i][headers.indexOf("Username")],
-            nim: users[i][headers.indexOf("NIM")],
-            gender: users[i][headers.indexOf("Gender")],
-            jurusan: users[i][headers.indexOf("Jurusan")],
-            role: users[i][headers.indexOf("Role")]
+            idUsers: userData[i][findColumn(headers, "idUsers")],
+            username: userData[i][findColumn(headers, "username")],
+            email: userData[i][findColumn(headers, "email")],
+            role: userData[i][findColumn(headers, "role")],
+            nim: userData[i][findColumn(headers, "nim")],
+            jurusan: userData[i][findColumn(headers, "jurusan")],
+            bio: userData[i][findColumn(headers, "bio")],
+            location: userData[i][findColumn(headers, "location")],
+            website: userData[i][findColumn(headers, "website")]
           }
         };
       }
@@ -565,13 +534,13 @@ function handleGetProfile(e) {
 
   } catch (error) {
     Logger.log("Get profile error: " + error.toString());
-    return { error: "Error mengambil profile: " + error.toString() };
+    return { error: "Error mendapatkan profil: " + error.toString() };
   }
 }
 
 function handleUpdateProfile(e) {
   try {
-    var data = getData(e);
+    var data = getUpdateProfileData(e);
     var userId = data.userId;
 
     if (!userId) {
@@ -585,22 +554,31 @@ function handleUpdateProfile(e) {
       return { error: "Sheet Users tidak ditemukan" };
     }
 
-    var users = usersSheet.getDataRange().getValues();
-    var headers = users[0];
-    var idCol = headers.indexOf("ID Users");
+    var userData = usersSheet.getDataRange().getValues();
+    var headers = userData[0];
+    var idCol = findColumn(headers, "idUsers");
 
-    // Cari user berdasarkan ID
-    for (var i = 1; i < users.length; i++) {
-      if (users[i][idCol] === userId) {
-        // Update data yang ada
-        if (data.username) usersSheet.getRange(i + 1, headers.indexOf("Username") + 1).setValue(data.username);
-        if (data.nim) usersSheet.getRange(i + 1, headers.indexOf("NIM") + 1).setValue(data.nim);
-        if (data.jurusan) usersSheet.getRange(i + 1, headers.indexOf("Jurusan") + 1).setValue(data.jurusan);
-        if (data.gender) usersSheet.getRange(i + 1, headers.indexOf("Gender") + 1).setValue(data.gender);
+    for (var i = 1; i < userData.length; i++) {
+      if (userData[i][idCol] === userId) {
+        // Update fields yang diberikan
+        if (data.username) usersSheet.getRange(i + 1, findColumn(headers, "username") + 1).setValue(data.username);
+        if (data.bio) usersSheet.getRange(i + 1, findColumn(headers, "bio") + 1).setValue(data.bio);
+        if (data.location) usersSheet.getRange(i + 1, findColumn(headers, "location") + 1).setValue(data.location);
+        if (data.website) usersSheet.getRange(i + 1, findColumn(headers, "website") + 1).setValue(data.website);
 
         return {
-          success: true,
-          message: "Profile berhasil diupdate"
+          message: "Profil berhasil diupdate",
+          user: {
+            idUsers: userData[i][findColumn(headers, "idUsers")],
+            username: data.username || userData[i][findColumn(headers, "username")],
+            email: userData[i][findColumn(headers, "email")],
+            role: userData[i][findColumn(headers, "role")],
+            nim: userData[i][findColumn(headers, "nim")],
+            jurusan: userData[i][findColumn(headers, "jurusan")],
+            bio: data.bio || userData[i][findColumn(headers, "bio")],
+            location: data.location || userData[i][findColumn(headers, "location")],
+            website: data.website || userData[i][findColumn(headers, "website")]
+          }
         };
       }
     }
@@ -609,11 +587,52 @@ function handleUpdateProfile(e) {
 
   } catch (error) {
     Logger.log("Update profile error: " + error.toString());
-    return { error: "Error update profile: " + error.toString() };
+    return { error: "Error update profil: " + error.toString() };
   }
 }
 
-function handleGetAdminStats(e) {
+function handleUploadImage(e) {
+  try {
+    var data = getImageData(e);
+    var imageBase64 = data.imageBase64;
+    var fileName = data.fileName || "image_" + Date.now();
+
+    if (!imageBase64) {
+      return { error: "Image data harus diisi" };
+    }
+
+    // Remove data URL prefix if present
+    var base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+    
+    // Convert base64 to blob
+    var blob = Utilities.newBlob(
+      Utilities.base64Decode(base64Data),
+      'image/jpeg',
+      fileName + '.jpg'
+    );
+
+    // Upload to Google Drive
+    var folder = DriveApp.getFolderById("1mWUUou6QkdumcBT-Qizljc7T6s2jQxkw");
+    var file = folder.createFile(blob);
+    
+    // Make file publicly viewable
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    var imageUrl = "https://drive.google.com/uc?id=" + file.getId();
+
+    return {
+      message: "Image berhasil diupload",
+      imageUrl: imageUrl,
+      fileId: file.getId()
+    };
+
+  } catch (error) {
+    Logger.log("Upload image error: " + error.toString());
+    return { error: "Error upload image: " + error.toString() };
+  }
+}
+
+function handleGetAdminStats() {
   try {
     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     var postingSheet = spreadsheet.getSheetByName("Posting");
@@ -623,75 +642,236 @@ function handleGetAdminStats(e) {
       return { error: "Sheet tidak ditemukan" };
     }
 
-    var posts = postingSheet.getDataRange().getValues();
-    var users = usersSheet.getDataRange().getValues();
+    var postData = postingSheet.getDataRange().getValues();
+    var userData = usersSheet.getDataRange().getValues();
 
-    if (posts.length < 2) {
-      return { 
-        success: true, 
-        stats: {
-          totalPosts: 0,
-          totalUsers: users.length - 1,
-          topPosts: []
-        }
-      };
-    }
+    var totalPosts = postData.length - 1; // minus header
+    var totalUsers = userData.length - 1; // minus header
 
-    var postHeaders = posts[0];
-    var userHeaders = users[0];
+    // Get posts with most likes
     var topPosts = [];
+    if (postData.length > 1) {
+      var postHeaders = postData[0];
+      var userHeaders = userData[0];
+      
+      for (var i = 1; i < postData.length; i++) {
+        var row = postData[i];
+        var post = {
+          id: row[findColumn(postHeaders, "idPostingan")],
+          judul: row[findColumn(postHeaders, "judul")],
+          deskripsi: row[findColumn(postHeaders, "deskripsi")],
+          likes: parseInt(row[findColumn(postHeaders, "likeCount")] || 0),
+          dislikes: parseInt(row[findColumn(postHeaders, "dislikeCount")] || 0),
+          userId: row[findColumn(postHeaders, "idUsers")],
+          username: "Anonymous"
+        };
 
-    // Mapping kolom
-    var idUsersCol = postHeaders.indexOf("ID Users");
-    var idPostinganCol = postHeaders.indexOf("ID Postingan");
-    var deskripsiCol = postHeaders.indexOf("Deskripsi");
-    var likeCol = postHeaders.indexOf("Like");
-    var timestampCol = postHeaders.indexOf("timestamp");
-
-    var userIdCol = userHeaders.indexOf("ID Users");
-    var usernameCol = userHeaders.indexOf("Username");
-
-    // Ambil semua posts dengan likes
-    for (var i = 1; i < posts.length; i++) {
-      var post = posts[i];
-      var username = "Anonymous";
-
-      // Cari username
-      for (var j = 1; j < users.length; j++) {
-        if (users[j][userIdCol] === post[idUsersCol]) {
-          username = users[j][usernameCol] || "Anonymous";
-          break;
+        // Find username
+        var userIdCol = findColumn(userHeaders, "idUsers");
+        var usernameCol = findColumn(userHeaders, "username");
+        for (var j = 1; j < userData.length; j++) {
+          if (userData[j][userIdCol] === post.userId) {
+            post.username = userData[j][usernameCol] || "Anonymous";
+            break;
+          }
         }
+
+        topPosts.push(post);
       }
 
-      topPosts.push({
-        id: post[idPostinganCol],
-        username: username,
-        deskripsi: post[deskripsiCol],
-        likes: parseInt(post[likeCol] || 0),
-        timestamp: post[timestampCol]
-      });
+      // Sort by likes descending
+      topPosts.sort(function(a, b) { return b.likes - a.likes; });
+      topPosts = topPosts.slice(0, 10); // Top 10
     }
 
-    // Sort berdasarkan likes terbanyak
-    topPosts.sort(function(a, b) {
-      return b.likes - a.likes;
-    });
-
-    // Ambil top 10
-    topPosts = topPosts.slice(0, 10);
-
     return {
-      success: true,
       stats: {
-        totalPosts: posts.length - 1,
-        totalUsers: users.length - 1,
+        totalPosts: totalPosts,
+        totalUsers: totalUsers,
         topPosts: topPosts
       }
     };
 
   } catch (error) {
     Logger.log("Get admin stats error: " + error.toString());
-    return { error: "Error mengambil statistik: " + error.toString() };
+    return { error: "Error mendapatkan statistik: " + error.toString() };
   }
+}
+
+// Helper functions
+function findColumn(headers, columnName) {
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i].toString().toLowerCase() === columnName.toLowerCase()) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function getCredentials(e) {
+  if (e.postData && e.postData.contents) {
+    try {
+      var postData = JSON.parse(e.postData.contents);
+      return {
+        email: postData.email,
+        password: postData.password
+      };
+    } catch (error) {
+      Logger.log("Parse credentials error: " + error.toString());
+    }
+  }
+  
+  return {
+    email: e.parameter.email || "",
+    password: e.parameter.password || ""
+  };
+}
+
+function getUserData(e) {
+  if (e.postData && e.postData.contents) {
+    try {
+      var postData = JSON.parse(e.postData.contents);
+      return {
+        email: postData.email,
+        username: postData.username,
+        password: postData.password,
+        nim: postData.nim,
+        jurusan: postData.jurusan,
+        gender: postData.gender,
+        role: postData.role
+      };
+    } catch (error) {
+      Logger.log("Parse user data error: " + error.toString());
+    }
+  }
+  
+  return {
+    email: e.parameter.email || "",
+    username: e.parameter.username || "",
+    password: e.parameter.password || "",
+    nim: e.parameter.nim || "",
+    jurusan: e.parameter.jurusan || "",
+    gender: e.parameter.gender || "",
+    role: e.parameter.role || "user"
+  };
+}
+
+function getPostData(e) {
+  if (e.postData && e.postData.contents) {
+    try {
+      var postData = JSON.parse(e.postData.contents);
+      return {
+        userId: postData.userId,
+        judul: postData.judul,
+        deskripsi: postData.deskripsi,
+        imageUrl: postData.imageUrl
+      };
+    } catch (error) {
+      Logger.log("Parse post data error: " + error.toString());
+    }
+  }
+  
+  return {
+    userId: e.parameter.userId || "",
+    judul: e.parameter.judul || "",
+    deskripsi: e.parameter.deskripsi || "",
+    imageUrl: e.parameter.imageUrl || ""
+  };
+}
+
+function getLikeData(e) {
+  if (e.postData && e.postData.contents) {
+    try {
+      var postData = JSON.parse(e.postData.contents);
+      return {
+        postId: postData.postId
+      };
+    } catch (error) {
+      Logger.log("Parse like data error: " + error.toString());
+    }
+  }
+  
+  return {
+    postId: e.parameter.postId || ""
+  };
+}
+
+function getPostDeleteData(e) {
+  if (e.postData && e.postData.contents) {
+    try {
+      var postData = JSON.parse(e.postData.contents);
+      return {
+        postId: postData.postId,
+        userId: postData.userId
+      };
+    } catch (error) {
+      Logger.log("Parse delete data error: " + error.toString());
+    }
+  }
+  
+  return {
+    postId: e.parameter.postId || "",
+    userId: e.parameter.userId || ""
+  };
+}
+
+function getProfileData(e) {
+  if (e.postData && e.postData.contents) {
+    try {
+      var postData = JSON.parse(e.postData.contents);
+      return {
+        userId: postData.userId
+      };
+    } catch (error) {
+      Logger.log("Parse profile data error: " + error.toString());
+    }
+  }
+  
+  return {
+    userId: e.parameter.userId || ""
+  };
+}
+
+function getUpdateProfileData(e) {
+  if (e.postData && e.postData.contents) {
+    try {
+      var postData = JSON.parse(e.postData.contents);
+      return {
+        userId: postData.userId,
+        username: postData.username,
+        bio: postData.bio,
+        location: postData.location,
+        website: postData.website
+      };
+    } catch (error) {
+      Logger.log("Parse update profile data error: " + error.toString());
+    }
+  }
+  
+  return {
+    userId: e.parameter.userId || "",
+    username: e.parameter.username || "",
+    bio: e.parameter.bio || "",
+    location: e.parameter.location || "",
+    website: e.parameter.website || ""
+  };
+}
+
+function getImageData(e) {
+  if (e.postData && e.postData.contents) {
+    try {
+      var postData = JSON.parse(e.postData.contents);
+      return {
+        imageBase64: postData.imageBase64,
+        fileName: postData.fileName
+      };
+    } catch (error) {
+      Logger.log("Parse image data error: " + error.toString());
+    }
+  }
+  
+  return {
+    imageBase64: e.parameter.imageBase64 || "",
+    fileName: e.parameter.fileName || ""
+  };
 }
