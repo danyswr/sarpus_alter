@@ -30,19 +30,26 @@ export default function Dashboard() {
     }
   }, [user, authLoading, setLocation]);
 
-  const { data: posts = [], isLoading } = useQuery({
+  const { data: posts = [], isLoading, refetch: refetchPosts } = useQuery({
     queryKey: ["/api/posts"],
     enabled: !!user,
-  }) as { data: Post[], isLoading: boolean };
+    refetchInterval: 10000, // Refetch every 10 seconds
+    staleTime: 5000, // Consider data stale after 5 seconds
+  }) as { data: Post[], isLoading: boolean, refetch: () => void };
 
   const createPostMutation = useMutation({
     mutationFn: (data: { judul: string; deskripsi: string; imageUrl?: string; userId: string }) =>
       api.posts.createPost(data),
     onSuccess: () => {
-      // Force refetch posts immediately
+      // Clear the form
+      setNewPost({ judul: "", deskripsi: "", imageUrl: "" });
+      // Force multiple refresh strategies
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       queryClient.refetchQueries({ queryKey: ["/api/posts"] });
-      setNewPost({ judul: "", deskripsi: "", imageUrl: "" });
+      // Also manually trigger refetch
+      setTimeout(() => {
+        refetchPosts();
+      }, 1000);
     },
   });
 
@@ -255,13 +262,23 @@ export default function Dashboard() {
                       </span>
                     </div>
 
-                    <Button 
-                      className="btn-primary rounded-full px-6 py-2 font-bold"
-                      onClick={handleCreatePost}
-                      disabled={createPostMutation.isPending || !newPost.deskripsi.trim() || newPost.deskripsi.length > 280}
-                    >
-                      {createPostMutation.isPending ? "Posting..." : "Post"}
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => refetchPosts()}
+                        className="text-primary border-primary hover:bg-primary/10"
+                      >
+                        Refresh
+                      </Button>
+                      <Button 
+                        className="btn-primary rounded-full px-6 py-2 font-bold"
+                        onClick={handleCreatePost}
+                        disabled={createPostMutation.isPending || !newPost.deskripsi.trim() || newPost.deskripsi.length > 280}
+                      >
+                        {createPostMutation.isPending ? "Posting..." : "Post"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -269,9 +286,21 @@ export default function Dashboard() {
           </Card>
 
           {/* Posts Feed */}
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Feed Keluh Kesah</h2>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => refetchPosts()}
+              disabled={isLoading}
+            >
+              {isLoading ? "Loading..." : "Refresh Feed"}
+            </Button>
+          </div>
+          
           {isLoading ? (
             <div className="text-center py-8">Loading posts...</div>
-          ) : posts.length === 0 ? (
+          ) : !posts || posts.length === 0 ? (
             <Card>
               <CardContent className="p-6 text-center">
                 <p className="text-gray-500">Belum ada postingan. Buat postingan pertamamu!</p>

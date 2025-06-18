@@ -42,3 +42,5 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
 - Language: Indonesian for UI text and error messages
 - Development approach: Focus on functionality and data integrity
 - Clean, readable code structure with proper error handling
+- Image storage: Google Drive integration preferred
+- Posting system: Twitter-like interface with real-time updates

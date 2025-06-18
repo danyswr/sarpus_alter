@@ -275,19 +275,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fix the data structure issues from Google Apps Script
       posts = posts.map((post: any) => {
-        // Handle mixed up data structure
+        // Handle mixed up data structure - Google Apps Script returns fields in wrong order
         let fixedPost = { ...post };
         
-        // If timestamp contains text instead of date, it's likely swapped with judul
+        // Check if the data structure is swapped (timestamp has text, not date)
         if (post.timestamp && typeof post.timestamp === 'string' && 
-            !post.timestamp.includes('2025') && !post.timestamp.includes('T')) {
+            !post.timestamp.includes('2025') && !post.timestamp.includes('T') && !post.timestamp.includes('Z')) {
+          // Data is swapped: timestamp has judul, judul has deskripsi, deskripsi has timestamp
           fixedPost.judul = post.timestamp;
-          fixedPost.deskripsi = post.judul;
+          fixedPost.deskripsi = post.judul; 
           fixedPost.timestamp = post.deskripsi;
         }
         
-        // Ensure proper timestamp format
-        if (!fixedPost.timestamp || fixedPost.timestamp === '') {
+        // Ensure we have a valid timestamp
+        if (!fixedPost.timestamp || fixedPost.timestamp === '' || 
+            (typeof fixedPost.timestamp === 'string' && !fixedPost.timestamp.includes('2025'))) {
           fixedPost.timestamp = new Date().toISOString();
         }
         
@@ -296,13 +298,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           fixedPost.imageUrl = convertGoogleDriveUrl(fixedPost.imageUrl);
         }
         
+        // Ensure we have proper user info
+        if (!fixedPost.username || fixedPost.username === 'Anonymous') {
+          fixedPost.username = 'User';
+        }
+        
         return fixedPost;
       });
       
-      // Sort posts by timestamp (newest first)
+      // Sort posts by timestamp (newest first) and by ID as fallback
       posts.sort((a: any, b: any) => {
         const dateA = new Date(a.timestamp).getTime();
         const dateB = new Date(b.timestamp).getTime();
+        
+        // If timestamps are the same or invalid, sort by ID (newer posts have higher IDs)
+        if (isNaN(dateA) || isNaN(dateB) || Math.abs(dateA - dateB) < 1000) {
+          const idA = parseInt(a.id?.replace(/\D/g, '') || '0');
+          const idB = parseInt(b.id?.replace(/\D/g, '') || '0');
+          return idB - idA;
+        }
+        
         return dateB - dateA;
       });
       
