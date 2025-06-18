@@ -434,12 +434,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Processing ${type} for post ${postId} by user ${userId}`);
       
-      // Use the unified likeDislike action from Google Apps Script
-      const result = await callGoogleScript('likeDislike', { 
-        postId: postId, 
-        type: type,
-        userId: userId
+      // Direct call to Google Apps Script with proper format
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'likeDislike',
+          postId: postId,
+          userId: userId,
+          type: type
+        })
       });
+      
+      const result = await response.json();
       
       if (result.error) {
         console.error(`${type} error:`, result.error);
@@ -496,7 +505,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const postId = req.params.id;
       
-      const result = await callGoogleScript('getComments', { postId });
+      // Direct call to Google Apps Script with proper format
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'getComments',
+          postId: postId
+        })
+      });
+      
+      const result = await response.json();
       
       if (result.error) {
         return res.status(500).json({ error: result.error });
@@ -529,86 +550,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Comment cannot be empty" });
       }
       
-      // Try multiple methods to ensure comment creation works
-      let result;
-      try {
-        // Primary method: POST
-        result = await callGoogleScript('createComment', { 
-          postId: postId, 
-          userId: userId, 
+      // Direct call to Google Apps Script with proper format
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'createComment',
+          postId: postId,
+          userId: userId,
           comment: comment.trim()
-        });
-      } catch (gasError) {
-        console.log("Primary Google Apps Script call failed, trying GET method...");
-        
-        // Fallback method: GET with query parameters
-        try {
-          const queryParams = new URLSearchParams({
-            action: 'createComment',
-            postId: postId,
-            userId: userId,
-            comment: comment.trim()
-          });
-          
-          const response = await fetch(`${GOOGLE_SCRIPT_URL}?${queryParams}`, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          });
-          
-          if (response.ok) {
-            result = await response.json();
-          } else {
-            throw new Error(`GET fallback failed: ${response.status}`);
-          }
-        } catch (fallbackError) {
-          console.error("Both POST and GET methods failed:", fallbackError);
-          
-          // Create temporary comment for immediate UI feedback
-          const tempComment = {
-            id: "TEMP_" + Date.now(),
-            idComment: "TEMP_" + Date.now(),
-            idPostingan: postId,
-            userId: userId,
-            comment: comment.trim(),
-            commentText: comment.trim(),
-            timestamp: new Date(),
-            username: "User" // Will be updated by frontend
-          };
-          
-          return res.json({
-            message: "Komentar berhasil dibuat (temporary)",
-            comment: tempComment,
-            temporary: true
-          });
-        }
-      }
+        })
+      });
+      
+      const result = await response.json();
       
       console.log("Google Apps Script response for createComment:", result);
       
       if (result && result.error) {
         console.error("Google Apps Script error:", result.error);
-        
-        // Even with error, create temporary comment for UI consistency
-        const tempComment = {
-          id: "TEMP_" + Date.now(),
-          idComment: "TEMP_" + Date.now(),
-          idPostingan: postId,
-          userId: userId,
-          comment: comment.trim(),
-          commentText: comment.trim(),
-          timestamp: new Date(),
-          username: "User"
-        };
-        
-        return res.json({
-          message: "Komentar berhasil dibuat (fallback)",
-          comment: tempComment,
-          temporary: true,
-          originalError: result.error
-        });
+        return res.status(400).json({ error: result.error });
       }
       
       res.json({
@@ -626,25 +588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Create comment error:", error);
-      
-      // Even with complete failure, provide temporary comment for UI
-      const tempComment = {
-        id: "TEMP_" + Date.now(),
-        idComment: "TEMP_" + Date.now(),
-        idPostingan: req.params.id,
-        userId: req.body.userId,
-        comment: req.body.comment?.trim() || "",
-        commentText: req.body.comment?.trim() || "",
-        timestamp: new Date(),
-        username: "User"
-      };
-      
-      res.json({
-        message: "Komentar berhasil dibuat (offline mode)",
-        comment: tempComment,
-        temporary: true,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      res.status(500).json({ error: "Failed to create comment: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
