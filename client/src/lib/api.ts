@@ -57,7 +57,7 @@ async function makeApiCall(action: string, data: any = {}): Promise<ApiResponse>
     return result;
   } catch (error) {
     console.error('API call error:', error);
-    return { error: 'Connection error: ' + error.message };
+    return { error: 'Connection error: ' + (error instanceof Error ? error.message : 'Unknown error') };
   }
 }
 

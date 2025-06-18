@@ -53,7 +53,7 @@ async function callGoogleScript(action: string, data: any = {}) {
     return await response.json();
   } catch (error) {
     console.error('Google Script API error:', error);
-    throw new Error('Failed to connect to Google Apps Script: ' + error.message);
+    throw new Error('Failed to connect to Google Apps Script: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 
@@ -75,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Login error:", error);
-      res.status(500).json({ error: "Login failed: " + error.message });
+      res.status(500).json({ error: "Login failed: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -95,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Register error:", error);
-      res.status(500).json({ error: "Registration failed: " + error.message });
+      res.status(500).json({ error: "Registration failed: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -111,7 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result.posts || []);
     } catch (error) {
       console.error("Get posts error:", error);
-      res.status(500).json({ error: "Failed to fetch posts: " + error.message });
+      res.status(500).json({ error: "Failed to fetch posts: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -131,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Create post error:", error);
-      res.status(500).json({ error: "Failed to create post: " + error.message });
+      res.status(500).json({ error: "Failed to create post: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -155,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Like post error:", error);
-      res.status(500).json({ error: "Failed to update like: " + error.message });
+      res.status(500).json({ error: "Failed to update like: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -173,7 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: result.message || "Postingan berhasil dihapus" });
     } catch (error) {
       console.error("Delete post error:", error);
-      res.status(500).json({ error: "Failed to delete post: " + error.message });
+      res.status(500).json({ error: "Failed to delete post: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -191,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result.user);
     } catch (error) {
       console.error("Get user error:", error);
-      res.status(500).json({ error: "Failed to fetch user: " + error.message });
+      res.status(500).json({ error: "Failed to fetch user: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -212,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Update user error:", error);
-      res.status(500).json({ error: "Failed to update user: " + error.message });
+      res.status(500).json({ error: "Failed to update user: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -238,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Image upload error:", error);
-      res.status(500).json({ error: "Failed to upload image: " + error.message });
+      res.status(500).json({ error: "Failed to upload image: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -254,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result.stats);
     } catch (error) {
       console.error("Get admin stats error:", error);
-      res.status(500).json({ error: "Failed to fetch admin stats: " + error.message });
+      res.status(500).json({ error: "Failed to fetch admin stats: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -265,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("Test connection error:", error);
-      res.status(500).json({ error: "Failed to connect to Google Apps Script: " + error.message });
+      res.status(500).json({ error: "Failed to connect to Google Apps Script: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
