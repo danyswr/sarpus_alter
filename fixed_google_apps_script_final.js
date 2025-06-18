@@ -1,3 +1,4 @@
+
 /**
  * FIXED Google Apps Script untuk Mahasiswa Feedback Platform
  * Deploy sebagai web app dengan "Execute as: Me" dan "Who has access: Anyone"
@@ -61,6 +62,12 @@ function handleRequest(e) {
         break;
       case "likeDislike":
         result = handleLikeDislike(e);
+        break;
+      case "likePost":
+        result = handleLikePost(e);
+        break;
+      case "dislikePost":
+        result = handleDislikePost(e);
         break;
       case "deletePost":
         result = handleDeletePost(e);
@@ -379,12 +386,23 @@ function handleCreatePost(e) {
   }
 }
 
-function handleLikeDislike(e) {
+// FIXED: Like/Dislike functionality with proper spreadsheet updates
+function handleLikePost(e) {
+  return handleLikeDislike(e, "like");
+}
+
+function handleDislikePost(e) {
+  return handleLikeDislike(e, "dislike");
+}
+
+function handleLikeDislike(e, forceType) {
   try {
     var data = getLikeData(e);
     var postId = data.postId;
     var userId = data.userId;
-    var type = data.type || "like";
+    var type = forceType || data.type || "like";
+
+    Logger.log("Processing " + type + " for post: " + postId + " by user: " + userId);
 
     if (!postId || !userId) {
       return { error: "Post ID dan User ID harus diisi" };
@@ -429,7 +447,7 @@ function handleLikeDislike(e) {
     if (existingRow !== -1) {
       // Update existing interaction
       if (existingType === type) {
-        // Remove interaction
+        // Remove interaction (toggle off)
         interactionsSheet.deleteRow(existingRow);
         if (type === "like") {
           newLikes = Math.max(0, currentLikes - 1);
@@ -437,7 +455,7 @@ function handleLikeDislike(e) {
           newDislikes = Math.max(0, currentDislikes - 1);
         }
       } else {
-        // Change interaction type
+        // Change interaction type (like to dislike or vice versa)
         interactionsSheet.getRange(existingRow, 3).setValue(type);
         interactionsSheet.getRange(existingRow, 4).setValue(new Date());
         if (type === "like") {
@@ -458,16 +476,27 @@ function handleLikeDislike(e) {
       }
     }
     
-    // Update post counts
-    postingSheet.getRange(postRow, 7).setValue(newLikes);
-    postingSheet.getRange(postRow, 8).setValue(newDislikes);
+    // CRITICAL: Update post counts in spreadsheet
+    try {
+      postingSheet.getRange(postRow, 7).setValue(newLikes);
+      postingSheet.getRange(postRow, 8).setValue(newDislikes);
+      Logger.log("Successfully updated like/dislike counts in spreadsheet: likes=" + newLikes + ", dislikes=" + newDislikes);
+    } catch (updateError) {
+      Logger.log("Error updating spreadsheet: " + updateError.toString());
+      return { error: "Error updating like/dislike counts: " + updateError.toString() };
+    }
     
     return {
       message: "Interaksi berhasil diupdate",
       likes: newLikes,
       dislikes: newDislikes,
       newLikeCount: newLikes,
-      newDislikeCount: newDislikes
+      newDislikeCount: newDislikes,
+      post: {
+        id: postId,
+        likes: newLikes,
+        dislikes: newDislikes
+      }
     };
 
   } catch (error) {
@@ -476,10 +505,13 @@ function handleLikeDislike(e) {
   }
 }
 
+// FIXED: Comment system with better error handling
 function handleGetComments(e) {
   try {
     var data = getCommentData(e);
     var postId = data.postId;
+    
+    Logger.log("Getting comments for postId: " + postId);
     
     if (!postId) {
       return { error: "Post ID harus diisi" };
@@ -492,6 +524,7 @@ function handleGetComments(e) {
     var userData = usersSheet.getDataRange().getValues();
     
     if (commentData.length < 2) {
+      Logger.log("No comments found, returning empty array");
       return [];
     }
     
@@ -532,6 +565,7 @@ function handleGetComments(e) {
       return dateA - dateB;
     });
     
+    Logger.log("Returning " + comments.length + " comments for post " + postId);
     return comments;
     
   } catch (error) {
@@ -547,32 +581,49 @@ function handleCreateComment(e) {
     var userId = data.userId;
     var comment = data.comment;
     
-    if (!postId || !userId || !comment) {
-      return { error: "Post ID, User ID, dan komentar harus diisi" };
+    Logger.log("Creating comment with data: " + JSON.stringify(data));
+    
+    if (!postId) {
+      return { error: "Post ID harus diisi" };
+    }
+    
+    if (!userId) {
+      return { error: "User ID harus diisi" };
+    }
+    
+    if (!comment || comment.trim() === "") {
+      return { error: "Komentar tidak boleh kosong" };
     }
     
     var commentsSheet = getSheet("Comments");
     var newId = "COMMENT_" + Date.now();
     
-    commentsSheet.appendRow([
-      newId,
-      postId,
-      userId,
-      comment,
-      new Date()
-    ]);
-    
-    return {
-      message: "Komentar berhasil dibuat",
-      comment: {
-        id: newId,
-        idComment: newId,
-        idPostingan: postId,
-        userId: userId,
-        comment: comment,
-        timestamp: new Date()
-      }
-    };
+    try {
+      commentsSheet.appendRow([
+        newId,
+        postId,
+        userId,
+        comment.trim(),
+        new Date()
+      ]);
+      
+      Logger.log("Comment successfully created with ID: " + newId);
+      
+      return {
+        message: "Komentar berhasil dibuat",
+        comment: {
+          id: newId,
+          idComment: newId,
+          idPostingan: postId,
+          userId: userId,
+          comment: comment.trim(),
+          timestamp: new Date()
+        }
+      };
+    } catch (appendError) {
+      Logger.log("Error appending comment to sheet: " + appendError.toString());
+      return { error: "Error menyimpan komentar: " + appendError.toString() };
+    }
     
   } catch (error) {
     Logger.log("Create comment error: " + error.toString());
