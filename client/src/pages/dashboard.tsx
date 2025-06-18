@@ -144,7 +144,7 @@ export default function Dashboard() {
               <div className="flex space-x-3">
                 <div className="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center flex-shrink-0">
                   <span className="text-white font-bold text-lg">
-                    {user.username.charAt(0).toUpperCase()}
+                    {user.username ? user.username.charAt(0).toUpperCase() : user.email ? user.email.charAt(0).toUpperCase() : 'U'}
                   </span>
                 </div>
                 <div className="flex-1">

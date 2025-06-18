@@ -89,11 +89,11 @@ export function Sidebar({ isOpen, onCreatePost }: SidebarProps) {
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center">
               <span className="text-white text-sm font-bold">
-                {user.username.charAt(0).toUpperCase()}
+                {user.username ? user.username.charAt(0).toUpperCase() : user.email ? user.email.charAt(0).toUpperCase() : 'U'}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">{user.username}</p>
+              <p className="font-semibold text-sm truncate">{user.username || user.email || 'User'}</p>
               <p className="text-gray-500 text-xs truncate">{user.email}</p>
             </div>
             <Button

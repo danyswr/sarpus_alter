@@ -84,15 +84,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (!result.error) {
           console.log("Login successful via Google Apps Script for:", email);
+          
+          // Handle different response structures from Google Apps Script
+          const userData = result.user || result;
+          
           return res.json({
             message: result.message || "Login berhasil",
             user: {
-              idUsers: result.idUsers,
-              username: result.username,
-              email: result.email,
-              role: result.role,
-              nim: result.nim,
-              jurusan: result.jurusan
+              idUsers: userData.idUsers || result.idUsers,
+              username: userData.username || result.username,
+              email: userData.email || result.email || email,
+              role: userData.role || result.role || "user",
+              nim: userData.nim || result.nim || "",
+              jurusan: userData.jurusan || result.jurusan || ""
             },
           });
         } else {
