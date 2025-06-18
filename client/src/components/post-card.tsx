@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Heart, MessageCircle, Share2, Trash2, Edit3, Check, X } from "lucide-react";
 import type { Post } from "@/lib/api";
-import { updatePost } from "@/lib/api";
+import { api } from "@/lib/api";
 
 interface PostCardProps {
   post: Post;
@@ -47,7 +47,7 @@ export function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     
     setIsUpdating(true);
     try {
-      const result = await updatePost(post.idPostingan, {
+      const result = await api.posts.updatePost(post.idPostingan, {
         judul: editJudul,
         deskripsi: editDeskripsi,
         userId: user.idUsers
