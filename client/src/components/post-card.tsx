@@ -84,19 +84,37 @@ export function PostCard({ post, onLike, onDelete }: PostCardProps) {
         <p className="text-gray-700 mb-3">{post.deskripsi}</p>
         
         {post.imageUrl && (
-          <img 
-            src={post.imageUrl} 
-            alt="Post attachment" 
-            className="rounded-xl w-full max-w-lg mb-3"
-            onError={(e) => {
-              console.error("Image failed to load:", post.imageUrl);
-              // Show placeholder for failed images
-              e.currentTarget.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiPkdhbWJhciBkYXJpIEdvb2dsZSBEcml2ZTwvdGV4dD4KPHN2ZyB4PSIxMzAiIHk9IjcwIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzlDQTNBRiI+CjxwYXRoIGQ9Im0yLjI1IDE1Ljc1IDUuMTU5LTUuMTU5YTIuMjUgMi4yNSAwIDAgMSAzLjE4MiAwbDUuMTU5IDUuMTU5bS0xLjUtMS41IDEuNDA5LTEuNDA5YTIuMjUgMi4yNSAwIDAgMSAzLjE4MiAwbDIuOTA5IDIuOTA5bS0xOCAzLjc1aDE2LjVhMS41IDEuNSAwIDAgMCAxLjUtMS41VjZhMS41IDEuNSAwIDAgMC0xLjUtMS41SDMuNzVBMS41IDEuNSAwIDAgMCAyLjI1IDZ2MTJhMS41IDEuNSAwIDAgMCAxLjUgMS41Wm0xMC41LTExLjI1aC4wMDh2LjAwOGgtLjAwOFY4LjI1Wm0uMzc1IDBhLjM3NS4zNzUgMCAxIDEtLjc1IDAgLjM3NS4zNzUgMCAwIDEgLjc1IDBaIi8+Cjwvc3ZnPgo8L3N2Zz4K";
-            }}
-            onLoad={() => {
-              console.log("Post image loaded successfully:", post.imageUrl);
-            }}
-          />
+          <div className="relative w-full max-w-lg mb-3">
+            <img 
+              src={post.imageUrl} 
+              alt="Post attachment" 
+              className="rounded-xl w-full h-auto"
+              style={{ display: 'block' }}
+              onLoad={() => {
+                console.log("Post image loaded successfully:", post.imageUrl);
+              }}
+              onError={(e) => {
+                console.error("Image failed to load:", post.imageUrl);
+                e.currentTarget.style.display = 'none';
+                const parent = e.currentTarget.parentElement;
+                if (parent) {
+                  const placeholder = parent.querySelector('.post-image-placeholder');
+                  if (placeholder) {
+                    (placeholder as HTMLElement).style.display = 'flex';
+                  }
+                }
+              }}
+            />
+            <div 
+              className="post-image-placeholder w-full h-48 bg-gray-100 rounded-xl border border-gray-200 flex flex-col items-center justify-center text-gray-500"
+              style={{ display: 'none' }}
+            >
+              <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </svg>
+              <span className="text-sm">Gambar dari Google Drive</span>
+            </div>
+          </div>
         )}
 
         <div className="flex items-center space-x-6 text-gray-500">
