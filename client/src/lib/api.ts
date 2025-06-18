@@ -155,7 +155,7 @@ export const createPost = async (postData: {
   deskripsi: string;
   imageUrl?: string;
 }): Promise<ApiResponse> => {
-  return postsApi.createPost({
+  return apiCall('/posts', 'POST', {
     userId: postData.idUsers,
     judul: postData.judul,
     deskripsi: postData.deskripsi,
@@ -163,12 +163,20 @@ export const createPost = async (postData: {
   });
 };
 
+export const updatePost = async (postId: string, postData: {
+  judul?: string;
+  deskripsi?: string;
+  userId: string;
+}): Promise<ApiResponse> => {
+  return apiCall(`/posts/${postId}`, 'PUT', postData);
+};
+
 export const likePost = async (postId: string, userId: string, type: 'like' | 'dislike'): Promise<ApiResponse> => {
-  return postsApi.likePost(postId, type);
+  return apiCall(`/posts/${postId}/like`, 'POST', { type, userId });
 };
 
 export const deletePost = async (postId: string, userId: string): Promise<ApiResponse> => {
-  return postsApi.deletePost(postId, userId);
+  return apiCall(`/posts/${postId}`, 'DELETE', { userId });
 };
 
 export const uploadImage = async (file: File): Promise<ApiResponse> => {

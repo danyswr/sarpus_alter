@@ -34,14 +34,16 @@ export default function Explore() {
     },
   });
 
-  const filteredPosts = posts.filter((post: Post) =>
+  const typedPosts = posts as Post[];
+  
+  const filteredPosts = typedPosts.filter((post: Post) =>
     post.judul.toLowerCase().includes(searchQuery.toLowerCase()) ||
     post.deskripsi.toLowerCase().includes(searchQuery.toLowerCase()) ||
     post.username?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Get trending topics from posts
-  const trendingTopics = posts
+  const trendingTopics = typedPosts
     .reduce((topics: { [key: string]: number }, post: Post) => {
       const words = post.judul.toLowerCase().split(' ').concat(post.deskripsi.toLowerCase().split(' '));
       words.forEach(word => {
@@ -53,7 +55,7 @@ export default function Explore() {
     }, {});
 
   const topTrending = Object.entries(trendingTopics)
-    .sort(([,a], [,b]) => b - a)
+    .sort(([,a], [,b]) => (b as number) - (a as number))
     .slice(0, 5)
     .map(([topic, count]) => ({ topic, count }));
 
@@ -102,6 +104,11 @@ export default function Explore() {
                         likePostMutation.mutate({ postId, type });
                       }
                     }}
+                    onDelete={(postId) => {
+                      if (user) {
+                        deletePostMutation.mutate(postId);
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -135,17 +142,17 @@ export default function Explore() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Postingan Baru</span>
-                    <span className="font-bold text-primary">+{posts.filter((p: Post) => 
+                    <span className="font-bold text-primary">+{typedPosts.filter((p: Post) => 
                       new Date(p.timestamp).toDateString() === new Date().toDateString()
                     ).length}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Total Likes</span>
-                    <span className="font-bold text-secondary">+{posts.reduce((sum: number, p: Post) => sum + (p.likes || 0), 0)}</span>
+                    <span className="font-bold text-secondary">+{typedPosts.reduce((sum: number, p: Post) => sum + (p.likes || 0), 0)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Total Posts</span>
-                    <span className="font-bold text-accent">{posts.length}</span>
+                    <span className="font-bold text-accent">{typedPosts.length}</span>
                   </div>
                 </div>
               </CardContent>
