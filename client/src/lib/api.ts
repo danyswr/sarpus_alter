@@ -177,14 +177,27 @@ export const uploadImage = async (file: File): Promise<ApiResponse> => {
     reader.onload = async (e) => {
       try {
         const base64 = e.target?.result as string;
-        const base64Data = base64.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+        if (!base64) {
+          throw new Error('Failed to read file');
+        }
+        
+        // Extract base64 data after comma
+        const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+        
+        console.log('Uploading image to Google Drive...');
         const result = await uploadApi.uploadImage(base64Data, file.name);
+        
+        console.log('Upload response:', result);
         resolve(result);
       } catch (error) {
+        console.error('Upload error:', error);
         reject(error);
       }
     };
-    reader.onerror = reject;
+    reader.onerror = (error) => {
+      console.error('FileReader error:', error);
+      reject(error);
+    };
     reader.readAsDataURL(file);
   });
 };

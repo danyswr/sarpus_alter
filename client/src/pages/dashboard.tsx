@@ -70,23 +70,22 @@ export default function Dashboard() {
 
   const uploadImageMutation = useMutation({
     mutationFn: async (file: File) => {
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      return api.upload.uploadImage(base64, file.name);
+      return api.uploadImage(file);
     },
     onSuccess: (data: any) => {
       console.log("Image upload success response:", data);
       if (data.imageUrl && data.imageUrl.trim() !== "") {
         console.log("Setting image URL:", data.imageUrl);
         setNewPost(prev => ({ ...prev, imageUrl: data.imageUrl }));
+        alert("Gambar berhasil diupload!");
+      } else {
+        console.warn("No image URL received from upload");
+        alert("Upload berhasil tapi URL gambar tidak tersedia");
       }
     },
     onError: (error) => {
       console.error("Image upload failed:", error);
-      alert("Gagal mengupload gambar. Silakan coba lagi.");
+      alert("Gagal mengupload gambar ke Google Drive. Pastikan koneksi internet stabil dan coba lagi.");
     },
   });
 
@@ -315,11 +314,13 @@ export default function Dashboard() {
             </Card>
           ) : (
             <div className="space-y-0">
-              {(posts as Post[]).map((post: Post) => {
+              {(posts as Post[]).map((post: Post, index: number) => {
                 console.log(`Rendering post ${post.id}:`, post);
+                // Ensure unique keys by combining multiple identifiers
+                const uniqueKey = `${post.id || post.idPostingan || `post-${index}`}-${post.timestamp || index}`;
                 return (
                   <PostCard
-                    key={post.id}
+                    key={uniqueKey}
                     post={post}
                     onLike={(postId, type) => likePostMutation.mutate({ postId, type })}
                     onDelete={(postId) => deletePostMutation.mutate(postId)}
