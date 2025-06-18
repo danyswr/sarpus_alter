@@ -47,11 +47,16 @@ export function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     
     setIsUpdating(true);
     try {
-      await updatePost(post.idPostingan, {
+      const result = await updatePost(post.idPostingan, {
         judul: editJudul,
         deskripsi: editDeskripsi,
         userId: user.idUsers
       });
+      
+      if (result.error) {
+        console.error('Update error:', result.error);
+        return;
+      }
       
       setIsEditing(false);
       if (onUpdate) onUpdate();

@@ -108,6 +108,14 @@ export const postsApi = {
     return apiCall(`/posts/${postId}/like`, 'POST', { type });
   },
 
+  updatePost: async (postId: string, updateData: {
+    judul?: string;
+    deskripsi?: string;
+    userId: string;
+  }): Promise<ApiResponse> => {
+    return apiCall(`/posts/${postId}`, 'PUT', updateData);
+  },
+
   deletePost: async (postId: string, userId: string): Promise<ApiResponse> => {
     return apiCall(`/posts/${postId}`, 'DELETE', { userId });
   }

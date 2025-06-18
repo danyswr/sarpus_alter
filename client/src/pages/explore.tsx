@@ -22,14 +22,65 @@ export default function Explore() {
   const likePostMutation = useMutation({
     mutationFn: ({ postId, type }: { postId: string; type: 'like' | 'dislike' }) =>
       api.likePost(postId, user!.idUsers, type),
-    onSuccess: () => {
+    onMutate: async ({ postId, type }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+      
+      // Snapshot the previous value
+      const previousPosts = queryClient.getQueryData<Post[]>(["/api/posts"]);
+      
+      // Optimistically update the post
+      queryClient.setQueryData<Post[]>(["/api/posts"], (old) => {
+        if (!old) return [];
+        return old.map(post => {
+          if (post.idPostingan === postId) {
+            return {
+              ...post,
+              likes: type === 'like' ? post.likes + 1 : post.likes,
+              dislikes: type === 'dislike' ? post.dislikes + 1 : post.dislikes
+            };
+          }
+          return post;
+        });
+      });
+      
+      return { previousPosts };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousPosts) {
+        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
   });
 
   const deletePostMutation = useMutation({
     mutationFn: (postId: string) => api.deletePost(postId, user!.idUsers),
-    onSuccess: () => {
+    onMutate: async (postId: string) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+      
+      // Snapshot the previous value
+      const previousPosts = queryClient.getQueryData<Post[]>(["/api/posts"]);
+      
+      // Optimistically remove the post
+      queryClient.setQueryData<Post[]>(["/api/posts"], (old) => 
+        old ? old.filter(post => post.idPostingan !== postId) : []
+      );
+      
+      return { previousPosts };
+    },
+    onError: (err, postId, context) => {
+      // Rollback on error
+      if (context?.previousPosts) {
+        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
   });
