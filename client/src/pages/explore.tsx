@@ -117,8 +117,8 @@ export default function Explore() {
                     </div>
                   ))}
                 </div>
-              </Card>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Quick Stats */}
             <Card>

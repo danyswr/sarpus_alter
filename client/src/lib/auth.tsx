@@ -1,8 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { apiRequest } from "./queryClient";
+import { api } from "./api";
 
 interface User {
-  id: number;
   idUsers: string;
   username: string;
   email: string;
@@ -48,15 +47,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/login", { email, password });
-      const data = await response.json();
+      const result = await api.login(email, password);
       
-      if (data.error) {
-        throw new Error(data.error);
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      setUser(data.user);
-      localStorage.setItem("feedbacku_user", JSON.stringify(data.user));
+      const userData: User = {
+        idUsers: result.idUsers,
+        username: result.username,
+        email: result.email,
+        role: result.role,
+        nim: result.nim,
+        jurusan: result.jurusan
+      };
+
+      setUser(userData);
+      localStorage.setItem("feedbacku_user", JSON.stringify(userData));
     } catch (error) {
       throw error;
     }
@@ -64,15 +71,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (userData: RegisterData) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/register", userData);
-      const data = await response.json();
+      const result = await api.register(userData);
       
-      if (data.error) {
-        throw new Error(data.error);
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      setUser(data.user);
-      localStorage.setItem("feedbacku_user", JSON.stringify(data.user));
+      const newUser: User = {
+        idUsers: result.idUsers,
+        username: result.username,
+        email: result.email,
+        role: result.role,
+        nim: result.nim,
+        jurusan: result.jurusan
+      };
+
+      setUser(newUser);
+      localStorage.setItem("feedbacku_user", JSON.stringify(newUser));
     } catch (error) {
       throw error;
     }
