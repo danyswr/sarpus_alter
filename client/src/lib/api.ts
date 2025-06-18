@@ -143,6 +143,52 @@ export const testConnection = async (): Promise<ApiResponse> => {
   return apiCall('/test', 'GET');
 };
 
+// Legacy API functions for backward compatibility
+export const getPosts = async (): Promise<Post[]> => {
+  const result = await postsApi.getAllPosts();
+  return result.posts || [];
+};
+
+export const createPost = async (postData: {
+  idUsers: string;
+  judul?: string;
+  deskripsi: string;
+  imageUrl?: string;
+}): Promise<ApiResponse> => {
+  return postsApi.createPost({
+    userId: postData.idUsers,
+    judul: postData.judul,
+    deskripsi: postData.deskripsi,
+    imageUrl: postData.imageUrl
+  });
+};
+
+export const likePost = async (postId: string, userId: string, type: 'like' | 'dislike'): Promise<ApiResponse> => {
+  return postsApi.likePost(postId, type);
+};
+
+export const deletePost = async (postId: string, userId: string): Promise<ApiResponse> => {
+  return postsApi.deletePost(postId, userId);
+};
+
+export const uploadImage = async (file: File): Promise<ApiResponse> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const base64 = e.target?.result as string;
+        const base64Data = base64.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+        const result = await uploadApi.uploadImage(base64Data, file.name);
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 // Main API object that consolidates all APIs
 export const api = {
   auth: authApi,
@@ -150,5 +196,11 @@ export const api = {
   user: userApi,
   admin: adminApi,
   upload: uploadApi,
-  testConnection
+  testConnection,
+  // Legacy functions
+  getPosts,
+  createPost,
+  likePost,
+  deletePost,
+  uploadImage
 };

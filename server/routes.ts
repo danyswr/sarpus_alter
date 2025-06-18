@@ -44,7 +44,7 @@ const likePostSchema = z.object({
 
 // Helper function to convert Google Drive URLs to directly viewable format
 function convertGoogleDriveUrl(url: string): string {
-  if (!url) return url;
+  if (!url || url.trim() === '') return url;
   
   // Extract file ID from various Google Drive URL formats
   let fileId = '';
@@ -63,9 +63,30 @@ function convertGoogleDriveUrl(url: string): string {
     }
   }
   
-  // If we found a file ID, return direct access URL
+  // Format 3: https://drive.google.com/open?id=FILE_ID
+  if (!fileId) {
+    match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match) {
+      fileId = match[1];
+    }
+  }
+  
+  // Format 4: Direct links from Google Drive sharing
+  if (!fileId) {
+    match = url.match(/https:\/\/[^\/]+\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
+    if (match) {
+      fileId = match[1];
+    }
+  }
+  
+  // If we found a file ID, return direct access URL for images
   if (fileId) {
-    return `https://lh3.googleusercontent.com/d/${fileId}`;
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  }
+  
+  // If it's already a direct Google Drive URL, return as is
+  if (url.includes('drive.google.com/uc?export=view')) {
+    return url;
   }
   
   return url;
@@ -363,22 +384,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { type } = likePostSchema.parse(req.body);
       
-      const action = type === 'dislike' ? 'dislikePost' : 'likePost';
-      const result = await callGoogleScript(action, { postId: id });
+      console.log(`Processing ${type || 'like'} for post ${id}`);
+      
+      // Use the unified likeDislike action from Google Apps Script
+      const result = await callGoogleScript('likeDislike', { 
+        postId: id, 
+        type: type || 'like',
+        userId: req.body.userId || 'anonymous' // Add userId for tracking
+      });
       
       if (result.error) {
+        console.error(`${type || 'like'} error:`, result.error);
         return res.status(404).json({ error: result.error });
       }
 
+      console.log(`${type || 'like'} successful for post ${id}:`, result);
+      
       res.json({
-        message: result.message || "Berhasil update like/dislike",
+        message: result.message || `Berhasil ${type === 'dislike' ? 'dislike' : 'like'} postingan`,
         post: result.post,
-        newLikeCount: result.newLikeCount,
-        newDislikeCount: result.newDislikeCount,
+        likes: result.likes || result.newLikeCount || 0,
+        dislikes: result.dislikes || result.newDislikeCount || 0,
+        success: true
       });
     } catch (error) {
-      console.error("Like post error:", error);
-      res.status(500).json({ error: "Failed to update like: " + (error instanceof Error ? error.message : 'Unknown error') });
+      console.error("Like/dislike post error:", error);
+      res.status(500).json({ error: "Failed to update like/dislike: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
