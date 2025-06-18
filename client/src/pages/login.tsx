@@ -37,8 +37,8 @@ export default function Login() {
       const userData = await login(data.email, data.password);
       console.log("Login successful, checking role for redirect");
       
-      // Redirect based on role from returned user data
-      if (userData.role === 'admin') {
+      // Redirect based on role from returned user data (case insensitive)
+      if (userData.role && userData.role.toLowerCase() === 'admin') {
         console.log("Redirecting admin to admin panel");
         window.location.href = "/admin";
       } else {

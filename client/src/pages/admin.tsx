@@ -32,7 +32,7 @@ export default function Admin() {
 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["/api/posts"],
-    enabled: !!user && user.role === 'admin',
+    enabled: !!user && !!user.role && user.role.toLowerCase() === 'admin',
   });
 
   const deletePostMutation = useMutation({
@@ -42,7 +42,7 @@ export default function Admin() {
     },
   });
 
-  if (authLoading || !user || user.role !== 'admin') {
+  if (authLoading || !user || !user.role || user.role.toLowerCase() !== 'admin') {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
