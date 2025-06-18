@@ -40,6 +40,7 @@ const createPostSchema = z.object({
 const likePostSchema = z.object({
   postId: z.string(),
   type: z.enum(['like', 'dislike']).optional(),
+  userId: z.string().optional(),
 });
 
 // Helper function to convert Google Drive URLs to directly viewable format
@@ -375,7 +376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/posts/:id/like", async (req, res) => {
     try {
       const { id } = req.params;
-      const { type } = likePostSchema.parse(req.body);
+      const { type, userId } = likePostSchema.parse(req.body);
       
       console.log(`Processing ${type || 'like'} for post ${id}`);
       
@@ -383,7 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await callGoogleScript('likeDislike', { 
         postId: id, 
         type: type || 'like',
-        userId: req.body.userId || 'anonymous' // Add userId for tracking
+        userId: userId || 'anonymous'
       });
       
       if (result.error) {
