@@ -6,7 +6,7 @@ import { PostCard } from "@/components/post-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type Post } from "@/lib/api";
+import { api, postsApi, type Post } from "@/lib/api";
 import { 
   BarChart3, 
   Users, 
@@ -30,13 +30,13 @@ export default function Admin() {
     }
   }, [user, authLoading, setLocation]);
 
-  const { data: posts = [], isLoading } = useQuery({
+  const { data: posts = [], isLoading } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
     enabled: !!user && !!user.role && user.role.toLowerCase() === 'admin',
   });
 
   const deletePostMutation = useMutation({
-    mutationFn: (postId: string) => api.deletePost(postId, user!.idUsers),
+    mutationFn: (postId: string) => api.posts.deletePost(postId, user!.idUsers),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
@@ -47,23 +47,24 @@ export default function Admin() {
   }
 
   // Calculate statistics
+  const postsArray = Array.isArray(posts) ? posts as Post[] : [];
   const stats = {
-    totalPosts: posts.length,
-    totalLikes: posts.reduce((sum: number, post: Post) => sum + (post.likes || 0), 0),
-    totalDislikes: posts.reduce((sum: number, post: Post) => sum + (post.dislikes || 0), 0),
-    avgLikesPerPost: posts.length > 0 ? Math.round(posts.reduce((sum: number, post: Post) => sum + (post.likes || 0), 0) / posts.length) : 0,
-    todayPosts: posts.filter((post: Post) => 
+    totalPosts: postsArray.length,
+    totalLikes: postsArray.reduce((sum: number, post: Post) => sum + (post.likes || 0), 0),
+    totalDislikes: postsArray.reduce((sum: number, post: Post) => sum + (post.dislikes || 0), 0),
+    avgLikesPerPost: postsArray.length > 0 ? Math.round(postsArray.reduce((sum: number, post: Post) => sum + (post.likes || 0), 0) / postsArray.length) : 0,
+    todayPosts: postsArray.filter((post: Post) => 
       new Date(post.timestamp).toDateString() === new Date().toDateString()
     ).length,
   };
 
   // Get most popular posts
-  const popularPosts = [...posts]
+  const popularPosts = [...postsArray]
     .sort((a: Post, b: Post) => (b.likes || 0) - (a.likes || 0))
     .slice(0, 5);
 
   // Get recent activity
-  const recentPosts = [...posts]
+  const recentPosts = [...postsArray]
     .sort((a: Post, b: Post) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 3);
 
@@ -168,7 +169,7 @@ export default function Admin() {
                     <div>
                       <p className="text-gray-500 text-sm">Engagement Rate</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {posts.length > 0 ? Math.round(((stats.totalLikes + stats.totalDislikes) / posts.length) * 100) / 100 : 0}
+                        {postsArray.length > 0 ? Math.round(((stats.totalLikes + stats.totalDislikes) / postsArray.length) * 100) / 100 : 0}
                       </p>
                     </div>
                     <div className="bg-green-100 p-3 rounded-lg">
@@ -263,13 +264,13 @@ export default function Admin() {
               <CardContent>
                 {isLoading ? (
                   <div className="text-center py-8">Loading posts...</div>
-                ) : posts.length === 0 ? (
+                ) : postsArray.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500">Belum ada postingan</p>
                   </div>
                 ) : (
                   <div className="space-y-0">
-                    {posts.map((post: Post) => (
+                    {postsArray.map((post: Post) => (
                       <PostCard
                         key={post.idPostingan}
                         post={post}
