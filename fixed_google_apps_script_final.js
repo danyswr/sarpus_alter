@@ -24,6 +24,9 @@ function doPost(e) {
 function doOptions(e) {
   var response = ContentService.createTextOutput();
   response.setMimeType(ContentService.MimeType.JSON);
+  response.getHeaders()['Access-Control-Allow-Origin'] = '*';
+  response.getHeaders()['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
+  response.getHeaders()['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
   response.setContent(JSON.stringify({ 
     status: "ok",
     message: "CORS preflight successful"
@@ -32,12 +35,26 @@ function doOptions(e) {
 }
 
 function handleRequest(e) {
-  try {
-    var response = ContentService.createTextOutput();
-    response.setMimeType(ContentService.MimeType.JSON);
+  var response = ContentService.createTextOutput();
+  response.setMimeType(ContentService.MimeType.JSON);
+  
+  // Add CORS headers
+  response.getHeaders()['Access-Control-Allow-Origin'] = '*';
+  response.getHeaders()['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
+  response.getHeaders()['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
 
+  try {
     var action = getAction(e);
+    Logger.log("=== REQUEST START ===");
     Logger.log("Action: " + action);
+    Logger.log("Method: " + (e.parameter ? "GET" : "POST"));
+    
+    if (e.postData) {
+      Logger.log("POST Data: " + e.postData.contents);
+    }
+    if (e.parameter) {
+      Logger.log("GET Parameters: " + JSON.stringify(e.parameter));
+    }
     
     var result = {};
 
@@ -91,38 +108,54 @@ function handleRequest(e) {
         result = { error: "Action tidak dikenal: " + action };
     }
 
+    Logger.log("Result: " + JSON.stringify(result));
+    Logger.log("=== REQUEST END ===");
+    
     response.setContent(JSON.stringify(result));
     return response;
 
   } catch (error) {
-    Logger.log("Error in handleRequest: " + error.toString());
+    Logger.log("FATAL ERROR in handleRequest: " + error.toString());
+    Logger.log("Error stack: " + error.stack);
+    
     var errorResponse = ContentService.createTextOutput();
     errorResponse.setMimeType(ContentService.MimeType.JSON);
+    errorResponse.getHeaders()['Access-Control-Allow-Origin'] = '*';
     errorResponse.setContent(JSON.stringify({ 
       error: "Server error: " + error.toString(),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      action: getAction(e)
     }));
     return errorResponse;
   }
 }
 
 function getAction(e) {
-  // Try parameter first (for GET requests)
-  if (e && e.parameter && e.parameter.action) {
-    return e.parameter.action;
-  }
-
-  // Try POST data
-  if (e && e.postData && e.postData.contents) {
-    try {
-      var postData = JSON.parse(e.postData.contents);
-      return postData.action || "test";
-    } catch (parseError) {
-      Logger.log("Parse error: " + parseError.toString());
+  try {
+    // Try parameter first (for GET requests)
+    if (e && e.parameter && e.parameter.action) {
+      Logger.log("Action from GET parameter: " + e.parameter.action);
+      return e.parameter.action;
     }
-  }
 
-  return "test";
+    // Try POST data
+    if (e && e.postData && e.postData.contents) {
+      try {
+        var postData = JSON.parse(e.postData.contents);
+        Logger.log("Action from POST data: " + (postData.action || "test"));
+        return postData.action || "test";
+      } catch (parseError) {
+        Logger.log("Parse error in getAction: " + parseError.toString());
+        return "test";
+      }
+    }
+
+    Logger.log("No action found, defaulting to test");
+    return "test";
+  } catch (error) {
+    Logger.log("Error in getAction: " + error.toString());
+    return "test";
+  }
 }
 
 function testConnection() {
@@ -131,7 +164,8 @@ function testConnection() {
     timestamp: new Date().toISOString(),
     status: "ok",
     methods_supported: ["GET", "POST"],
-    cors_enabled: true
+    cors_enabled: true,
+    version: "2.0"
   };
 }
 
@@ -386,7 +420,7 @@ function handleCreatePost(e) {
   }
 }
 
-// FIXED: Like/Dislike functionality with proper spreadsheet updates
+// IMPROVED: Like/Dislike functionality with better error handling
 function handleLikePost(e) {
   return handleLikeDislike(e, "like");
 }
@@ -402,10 +436,19 @@ function handleLikeDislike(e, forceType) {
     var userId = data.userId;
     var type = forceType || data.type || "like";
 
+    Logger.log("=== LIKE/DISLIKE START ===");
     Logger.log("Processing " + type + " for post: " + postId + " by user: " + userId);
+    Logger.log("Raw data: " + JSON.stringify(data));
 
-    if (!postId || !userId) {
-      return { error: "Post ID dan User ID harus diisi" };
+    // Validate required fields
+    if (!postId || postId === "") {
+      Logger.log("ERROR: Missing postId");
+      return { error: "Post ID harus diisi" };
+    }
+
+    if (!userId || userId === "") {
+      Logger.log("ERROR: Missing userId");
+      return { error: "User ID harus diisi" };
     }
 
     var postingSheet = getSheet("Posting");
@@ -423,8 +466,11 @@ function handleLikeDislike(e, forceType) {
     }
     
     if (postRow === -1) {
+      Logger.log("ERROR: Post not found: " + postId);
       return { error: "Postingan tidak ditemukan" };
     }
+
+    Logger.log("Found post at row: " + postRow);
 
     // Check existing interaction
     var interactionData = interactionsSheet.getDataRange().getValues();
@@ -439,15 +485,20 @@ function handleLikeDislike(e, forceType) {
       }
     }
     
+    Logger.log("Existing interaction: " + (existingRow > -1 ? existingType + " at row " + existingRow : "None"));
+    
     var currentLikes = parseInt(postData[postRow - 1][6] || 0);
     var currentDislikes = parseInt(postData[postRow - 1][7] || 0);
     var newLikes = currentLikes;
     var newDislikes = currentDislikes;
     
+    Logger.log("Current counts - Likes: " + currentLikes + ", Dislikes: " + currentDislikes);
+    
     if (existingRow !== -1) {
       // Update existing interaction
       if (existingType === type) {
         // Remove interaction (toggle off)
+        Logger.log("Removing existing " + type + " interaction");
         interactionsSheet.deleteRow(existingRow);
         if (type === "like") {
           newLikes = Math.max(0, currentLikes - 1);
@@ -456,6 +507,7 @@ function handleLikeDislike(e, forceType) {
         }
       } else {
         // Change interaction type (like to dislike or vice versa)
+        Logger.log("Changing interaction from " + existingType + " to " + type);
         interactionsSheet.getRange(existingRow, 3).setValue(type);
         interactionsSheet.getRange(existingRow, 4).setValue(new Date());
         if (type === "like") {
@@ -468,6 +520,7 @@ function handleLikeDislike(e, forceType) {
       }
     } else {
       // Add new interaction
+      Logger.log("Adding new " + type + " interaction");
       interactionsSheet.appendRow([postId, userId, type, new Date()]);
       if (type === "like") {
         newLikes = currentLikes + 1;
@@ -476,18 +529,21 @@ function handleLikeDislike(e, forceType) {
       }
     }
     
-    // CRITICAL: Update post counts in spreadsheet
+    Logger.log("New counts - Likes: " + newLikes + ", Dislikes: " + newDislikes);
+    
+    // Update post counts in spreadsheet
     try {
       postingSheet.getRange(postRow, 7).setValue(newLikes);
       postingSheet.getRange(postRow, 8).setValue(newDislikes);
-      Logger.log("Successfully updated like/dislike counts in spreadsheet: likes=" + newLikes + ", dislikes=" + newDislikes);
+      Logger.log("Successfully updated spreadsheet counts");
     } catch (updateError) {
-      Logger.log("Error updating spreadsheet: " + updateError.toString());
+      Logger.log("ERROR updating spreadsheet: " + updateError.toString());
       return { error: "Error updating like/dislike counts: " + updateError.toString() };
     }
     
-    return {
+    var result = {
       message: "Interaksi berhasil diupdate",
+      success: true,
       likes: newLikes,
       dislikes: newDislikes,
       newLikeCount: newLikes,
@@ -498,22 +554,28 @@ function handleLikeDislike(e, forceType) {
         dislikes: newDislikes
       }
     };
+    
+    Logger.log("=== LIKE/DISLIKE SUCCESS ===");
+    return result;
 
   } catch (error) {
-    Logger.log("Like/dislike error: " + error.toString());
+    Logger.log("FATAL ERROR in like/dislike: " + error.toString());
+    Logger.log("Error stack: " + error.stack);
     return { error: "Error like/dislike: " + error.toString() };
   }
 }
 
-// FIXED: Comment system with improved error handling and validation
+// IMPROVED: Comment system with comprehensive error handling
 function handleGetComments(e) {
   try {
     var data = getCommentData(e);
     var postId = data.postId;
     
+    Logger.log("=== GET COMMENTS START ===");
     Logger.log("Getting comments for postId: " + postId);
     
-    if (!postId) {
+    if (!postId || postId === "") {
+      Logger.log("ERROR: Missing postId");
       return { error: "Post ID harus diisi" };
     }
     
@@ -566,10 +628,12 @@ function handleGetComments(e) {
     });
     
     Logger.log("Returning " + comments.length + " comments for post " + postId);
+    Logger.log("=== GET COMMENTS SUCCESS ===");
     return comments;
     
   } catch (error) {
-    Logger.log("Get comments error: " + error.toString());
+    Logger.log("FATAL ERROR in get comments: " + error.toString());
+    Logger.log("Error stack: " + error.stack);
     return { error: "Error mengambil komentar: " + error.toString() };
   }
 }
@@ -581,24 +645,27 @@ function handleCreateComment(e) {
     var userId = data.userId;
     var comment = data.comment;
     
-    Logger.log("Creating comment with raw data: " + JSON.stringify(e.postData));
+    Logger.log("=== CREATE COMMENT START ===");
+    Logger.log("Raw request data: " + JSON.stringify(e));
     Logger.log("Parsed comment data: " + JSON.stringify(data));
     
-    // Validate required fields
+    // Validate required fields with detailed logging
     if (!postId || postId === "") {
-      Logger.log("Missing postId");
+      Logger.log("ERROR: Missing or empty postId");
       return { error: "Post ID harus diisi" };
     }
     
     if (!userId || userId === "") {
-      Logger.log("Missing userId");
+      Logger.log("ERROR: Missing or empty userId");
       return { error: "User ID harus diisi" };
     }
     
     if (!comment || comment.trim() === "") {
-      Logger.log("Missing or empty comment");
+      Logger.log("ERROR: Missing or empty comment");
       return { error: "Komentar tidak boleh kosong" };
     }
+    
+    Logger.log("Validation passed - postId: " + postId + ", userId: " + userId + ", comment: " + comment.trim());
     
     // Verify post exists
     var postingSheet = getSheet("Posting");
@@ -613,9 +680,11 @@ function handleCreateComment(e) {
     }
     
     if (!postExists) {
-      Logger.log("Post not found: " + postId);
+      Logger.log("ERROR: Post not found: " + postId);
       return { error: "Postingan tidak ditemukan" };
     }
+    
+    Logger.log("Post exists, creating comment...");
     
     var commentsSheet = getSheet("Comments");
     var newId = "COMMENT_" + Date.now();
@@ -634,8 +703,9 @@ function handleCreateComment(e) {
       
       Logger.log("Comment successfully created with ID: " + newId);
       
-      return {
+      var result = {
         message: "Komentar berhasil dibuat",
+        success: true,
         comment: {
           id: newId,
           idComment: newId,
@@ -645,13 +715,19 @@ function handleCreateComment(e) {
           timestamp: new Date()
         }
       };
+      
+      Logger.log("=== CREATE COMMENT SUCCESS ===");
+      return result;
+      
     } catch (appendError) {
-      Logger.log("Error appending comment to sheet: " + appendError.toString());
+      Logger.log("ERROR appending comment to sheet: " + appendError.toString());
+      Logger.log("Append error stack: " + appendError.stack);
       return { error: "Error menyimpan komentar: " + appendError.toString() };
     }
     
   } catch (error) {
-    Logger.log("Create comment error: " + error.toString());
+    Logger.log("FATAL ERROR in create comment: " + error.toString());
+    Logger.log("Error stack: " + error.stack);
     return { error: "Error membuat komentar: " + error.toString() };
   }
 }
@@ -892,210 +968,265 @@ function handleGetAdminStats() {
   }
 }
 
-// Helper functions for parsing request data
+// IMPROVED: Helper functions with better error handling and logging
 function getCredentials(e) {
-  if (e && e.parameter) {
-    return {
-      email: e.parameter.email || "",
-      password: e.parameter.password || ""
-    };
-  }
-  
-  if (e && e.postData && e.postData.contents) {
-    try {
-      var data = JSON.parse(e.postData.contents);
+  try {
+    if (e && e.parameter) {
       return {
-        email: data.email || "",
-        password: data.password || ""
+        email: e.parameter.email || "",
+        password: e.parameter.password || ""
       };
-    } catch (error) {
-      Logger.log("Parse credentials error: " + error.toString());
     }
+    
+    if (e && e.postData && e.postData.contents) {
+      try {
+        var data = JSON.parse(e.postData.contents);
+        return {
+          email: data.email || "",
+          password: data.password || ""
+        };
+      } catch (error) {
+        Logger.log("Parse credentials error: " + error.toString());
+      }
+    }
+    return { email: "", password: "" };
+  } catch (error) {
+    Logger.log("Error in getCredentials: " + error.toString());
+    return { email: "", password: "" };
   }
-  return { email: "", password: "" };
 }
 
 function getUserData(e) {
-  if (e && e.parameter) {
-    return {
-      email: e.parameter.email || "",
-      username: e.parameter.username || "",
-      password: e.parameter.password || "",
-      nim: e.parameter.nim || "",
-      jurusan: e.parameter.jurusan || "",
-      gender: e.parameter.gender || "male",
-      role: e.parameter.role || "user"
-    };
-  }
-  
-  if (e && e.postData && e.postData.contents) {
-    try {
-      var data = JSON.parse(e.postData.contents);
+  try {
+    if (e && e.parameter) {
       return {
-        email: data.email || "",
-        username: data.username || "",
-        password: data.password || "",
-        nim: data.nim || "",
-        jurusan: data.jurusan || "",
-        gender: data.gender || "male",
-        role: data.role || "user"
+        email: e.parameter.email || "",
+        username: e.parameter.username || "",
+        password: e.parameter.password || "",
+        nim: e.parameter.nim || "",
+        jurusan: e.parameter.jurusan || "",
+        gender: e.parameter.gender || "male",
+        role: e.parameter.role || "user"
       };
-    } catch (error) {
-      Logger.log("Parse user data error: " + error.toString());
     }
+    
+    if (e && e.postData && e.postData.contents) {
+      try {
+        var data = JSON.parse(e.postData.contents);
+        return {
+          email: data.email || "",
+          username: data.username || "",
+          password: data.password || "",
+          nim: data.nim || "",
+          jurusan: data.jurusan || "",
+          gender: data.gender || "male",
+          role: data.role || "user"
+        };
+      } catch (error) {
+        Logger.log("Parse user data error: " + error.toString());
+      }
+    }
+    return {};
+  } catch (error) {
+    Logger.log("Error in getUserData: " + error.toString());
+    return {};
   }
-  return {};
 }
 
 function getPostData(e) {
-  if (e && e.parameter) {
-    return {
-      userId: e.parameter.userId || "",
-      judul: e.parameter.judul || "",
-      deskripsi: e.parameter.deskripsi || "",
-      imageUrl: e.parameter.imageUrl || ""
-    };
-  }
-  
-  if (e && e.postData && e.postData.contents) {
-    try {
-      var data = JSON.parse(e.postData.contents);
+  try {
+    if (e && e.parameter) {
       return {
-        userId: data.userId || "",
-        judul: data.judul || "",
-        deskripsi: data.deskripsi || "",
-        imageUrl: data.imageUrl || ""
+        userId: e.parameter.userId || "",
+        judul: e.parameter.judul || "",
+        deskripsi: e.parameter.deskripsi || "",
+        imageUrl: e.parameter.imageUrl || ""
       };
-    } catch (error) {
-      Logger.log("Parse post data error: " + error.toString());
     }
+    
+    if (e && e.postData && e.postData.contents) {
+      try {
+        var data = JSON.parse(e.postData.contents);
+        return {
+          userId: data.userId || "",
+          judul: data.judul || "",
+          deskripsi: data.deskripsi || "",
+          imageUrl: data.imageUrl || ""
+        };
+      } catch (error) {
+        Logger.log("Parse post data error: " + error.toString());
+      }
+    }
+    return {};
+  } catch (error) {
+    Logger.log("Error in getPostData: " + error.toString());
+    return {};
   }
-  return {};
 }
 
 function getUpdatePostData(e) {
-  if (e && e.parameter) {
-    return {
-      postId: e.parameter.postId || "",
-      userId: e.parameter.userId || "",
-      judul: e.parameter.judul,
-      deskripsi: e.parameter.deskripsi
-    };
-  }
-  
-  if (e && e.postData && e.postData.contents) {
-    try {
-      var data = JSON.parse(e.postData.contents);
+  try {
+    if (e && e.parameter) {
       return {
-        postId: data.postId || "",
-        userId: data.userId || "",
-        judul: data.judul,
-        deskripsi: data.deskripsi
+        postId: e.parameter.postId || "",
+        userId: e.parameter.userId || "",
+        judul: e.parameter.judul,
+        deskripsi: e.parameter.deskripsi
       };
-    } catch (error) {
-      Logger.log("Parse update post data error: " + error.toString());
     }
+    
+    if (e && e.postData && e.postData.contents) {
+      try {
+        var data = JSON.parse(e.postData.contents);
+        return {
+          postId: data.postId || "",
+          userId: data.userId || "",
+          judul: data.judul,
+          deskripsi: data.deskripsi
+        };
+      } catch (error) {
+        Logger.log("Parse update post data error: " + error.toString());
+      }
+    }
+    return {};
+  } catch (error) {
+    Logger.log("Error in getUpdatePostData: " + error.toString());
+    return {};
   }
-  return {};
 }
 
 function getLikeData(e) {
-  if (e && e.parameter) {
-    return {
-      postId: e.parameter.postId || "",
-      userId: e.parameter.userId || "",
-      type: e.parameter.type || "like"
-    };
-  }
-  
-  if (e && e.postData && e.postData.contents) {
-    try {
-      var data = JSON.parse(e.postData.contents);
-      return {
-        postId: data.postId || "",
-        userId: data.userId || "",
-        type: data.type || "like"
+  try {
+    var result = {};
+    
+    if (e && e.parameter) {
+      result = {
+        postId: e.parameter.postId || "",
+        userId: e.parameter.userId || "",
+        type: e.parameter.type || "like"
       };
-    } catch (error) {
-      Logger.log("Parse like data error: " + error.toString());
+      Logger.log("GET like data: " + JSON.stringify(result));
+      return result;
     }
+    
+    if (e && e.postData && e.postData.contents) {
+      try {
+        var data = JSON.parse(e.postData.contents);
+        result = {
+          postId: data.postId || "",
+          userId: data.userId || "",
+          type: data.type || "like"
+        };
+        Logger.log("POST like data: " + JSON.stringify(result));
+        return result;
+      } catch (error) {
+        Logger.log("Parse like data error: " + error.toString());
+      }
+    }
+    
+    Logger.log("Default like data returned");
+    return {};
+  } catch (error) {
+    Logger.log("Error in getLikeData: " + error.toString());
+    return {};
   }
-  return {};
 }
 
 function getCommentData(e) {
-  Logger.log("Raw request data: " + JSON.stringify(e));
-  
-  // For GET requests (getComments)
-  if (e && e.parameter) {
-    return {
-      postId: e.parameter.postId || "",
-      userId: e.parameter.userId || "",
-      comment: e.parameter.comment || "",
-      commentId: e.parameter.commentId || ""
-    };
-  }
-  
-  // For POST requests (createComment)
-  if (e && e.postData && e.postData.contents) {
-    try {
-      var data = JSON.parse(e.postData.contents);
-      Logger.log("Parsed POST data: " + JSON.stringify(data));
-      return {
-        postId: data.postId || "",
-        userId: data.userId || "",
-        comment: data.comment || "",
-        commentId: data.commentId || ""
+  try {
+    Logger.log("=== PARSING COMMENT DATA ===");
+    Logger.log("Raw request: " + JSON.stringify(e));
+    
+    var result = {};
+    
+    // For GET requests (getComments)
+    if (e && e.parameter) {
+      result = {
+        postId: e.parameter.postId || "",
+        userId: e.parameter.userId || "",
+        comment: e.parameter.comment || "",
+        commentId: e.parameter.commentId || ""
       };
-    } catch (error) {
-      Logger.log("Parse comment data error: " + error.toString());
-      Logger.log("Raw POST contents: " + e.postData.contents);
+      Logger.log("GET comment data: " + JSON.stringify(result));
+      return result;
     }
+    
+    // For POST requests (createComment)
+    if (e && e.postData && e.postData.contents) {
+      try {
+        var data = JSON.parse(e.postData.contents);
+        result = {
+          postId: data.postId || "",
+          userId: data.userId || "",
+          comment: data.comment || "",
+          commentId: data.commentId || ""
+        };
+        Logger.log("POST comment data: " + JSON.stringify(result));
+        return result;
+      } catch (error) {
+        Logger.log("Parse comment data error: " + error.toString());
+        Logger.log("Raw POST contents: " + e.postData.contents);
+      }
+    }
+    
+    Logger.log("Default comment data returned");
+    return {};
+  } catch (error) {
+    Logger.log("Error in getCommentData: " + error.toString());
+    return {};
   }
-  
-  return {};
 }
 
 function getUploadData(e) {
-  if (e && e.parameter) {
-    return {
-      imageBase64: e.parameter.imageBase64 || "",
-      fileName: e.parameter.fileName || ""
-    };
-  }
-  
-  if (e && e.postData && e.postData.contents) {
-    try {
-      var data = JSON.parse(e.postData.contents);
+  try {
+    if (e && e.parameter) {
       return {
-        imageBase64: data.imageBase64 || "",
-        fileName: data.fileName || ""
+        imageBase64: e.parameter.imageBase64 || "",
+        fileName: e.parameter.fileName || ""
       };
-    } catch (error) {
-      Logger.log("Parse upload data error: " + error.toString());
     }
+    
+    if (e && e.postData && e.postData.contents) {
+      try {
+        var data = JSON.parse(e.postData.contents);
+        return {
+          imageBase64: data.imageBase64 || "",
+          fileName: data.fileName || ""
+        };
+      } catch (error) {
+        Logger.log("Parse upload data error: " + error.toString());
+      }
+    }
+    return {};
+  } catch (error) {
+    Logger.log("Error in getUploadData: " + error.toString());
+    return {};
   }
-  return {};
 }
 
 function getDeletePostData(e) {
-  if (e && e.parameter) {
-    return {
-      postId: e.parameter.postId || "",
-      userId: e.parameter.userId || ""
-    };
-  }
-  
-  if (e && e.postData && e.postData.contents) {
-    try {
-      var data = JSON.parse(e.postData.contents);
+  try {
+    if (e && e.parameter) {
       return {
-        postId: data.postId || "",
-        userId: data.userId || ""
+        postId: e.parameter.postId || "",
+        userId: e.parameter.userId || ""
       };
-    } catch (error) {
-      Logger.log("Parse delete post data error: " + error.toString());
     }
+    
+    if (e && e.postData && e.postData.contents) {
+      try {
+        var data = JSON.parse(e.postData.contents);
+        return {
+          postId: data.postId || "",
+          userId: data.userId || ""
+        };
+      } catch (error) {
+        Logger.log("Parse delete post data error: " + error.toString());
+      }
+    }
+    return {};
+  } catch (error) {
+    Logger.log("Error in getDeletePostData: " + error.toString());
+    return {};
   }
-  return {};
 }
