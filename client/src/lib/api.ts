@@ -29,10 +29,11 @@ export interface Post {
 }
 
 export interface Comment {
+  id: string;
   idComment: string;
   idPostingan: string;
-  idUsers: string;
-  comment: string;
+  userId: string;
+  commentText: string;
   timestamp: string;
   username: string;
 }

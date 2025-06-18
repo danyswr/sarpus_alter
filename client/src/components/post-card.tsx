@@ -152,7 +152,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
       
     } catch (error) {
       console.error('Update error:', error);
-      alert('Network error: ' + error.message);
+      alert('Network error: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsUpdating(false);
     }
@@ -185,6 +185,8 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     setIsPostingComment(true);
     try {
       const result = await api.posts.createComment(post.idPostingan, user.idUsers, newComment.trim());
+      console.log('Comment creation result:', result);
+      
       if (result.comment) {
         const newCommentWithUsername = {
           ...result.comment,
@@ -192,9 +194,14 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
         };
         setComments(prev => [...prev, newCommentWithUsername]);
         setNewComment("");
+      } else if (result.message && result.message.includes('berhasil')) {
+        // Reload comments to get the new one
+        loadComments();
+        setNewComment("");
       }
     } catch (error) {
       console.error('Error posting comment:', error);
+      alert('Error posting comment: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsPostingComment(false);
     }
@@ -204,10 +211,15 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     if (!user) return;
     
     try {
-      await api.posts.deleteComment(commentId, user.idUsers);
-      setComments(prev => prev.filter(c => c.idComment !== commentId));
+      const result = await api.posts.deleteComment(commentId, user.idUsers);
+      console.log('Delete comment result:', result);
+      
+      if (result.message && result.message.includes('berhasil')) {
+        setComments(prev => prev.filter(c => (c.idComment || c.id) !== commentId));
+      }
     } catch (error) {
       console.error('Error deleting comment:', error);
+      alert('Error deleting comment: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -475,7 +487,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
             ) : comments.length > 0 ? (
               <div className="space-y-3">
                 {comments.map((comment) => (
-                  <div key={comment.idComment} className="flex space-x-3">
+                  <div key={comment.idComment || comment.id} className="flex space-x-3">
                     <div className="w-8 h-8 bg-gradient-to-r from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">
                         {comment.username?.charAt(0).toUpperCase() || 'U'}
@@ -491,9 +503,9 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
                             <span className="text-xs text-gray-500">
                               {formatCommentTime(comment.timestamp)}
                             </span>
-                            {user && (user.idUsers === comment.idUsers || user.role === 'admin') && (
+                            {user && (user.idUsers === comment.userId || user.idUsers === comment.idUsers || user.role === 'admin') && (
                               <Button
-                                onClick={() => handleDeleteComment(comment.idComment)}
+                                onClick={() => handleDeleteComment(comment.idComment || comment.id)}
                                 variant="ghost"
                                 size="sm"
                                 className="text-gray-400 hover:text-red-500 p-1 h-auto"
@@ -503,7 +515,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
                             )}
                           </div>
                         </div>
-                        <p className="text-gray-700 text-sm">{comment.comment}</p>
+                        <p className="text-gray-700 text-sm">{comment.commentText || comment.comment}</p>
                       </div>
                     </div>
                   </div>
