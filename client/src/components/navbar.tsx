@@ -67,7 +67,7 @@ export function Navbar({ onCreatePost, onToggleSidebar }: NavbarProps) {
                 <Link href="/profile">
                   <div className="w-8 h-8 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center">
                     <span className="text-white text-sm font-bold">
-                      {user.username.charAt(0).toUpperCase()}
+                      {user.username ? user.username.charAt(0).toUpperCase() : user.email ? user.email.charAt(0).toUpperCase() : 'U'}
                     </span>
                   </div>
                 </Link>

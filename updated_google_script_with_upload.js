@@ -450,9 +450,9 @@ function handleUploadImage(e) {
     // Set file to be publicly viewable
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
-    // Generate public URL
+    // Generate public URL for direct image display
     var fileId = file.getId();
-    var publicUrl = "https://drive.google.com/uc?id=" + fileId + "&export=view";
+    var publicUrl = "https://drive.google.com/uc?id=" + fileId;
 
     Logger.log("Image uploaded successfully: " + publicUrl);
 

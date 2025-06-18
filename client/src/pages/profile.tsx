@@ -47,7 +47,7 @@ export default function Profile() {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: (data: typeof editForm) => api.updateProfile(user!.idUsers, data),
+    mutationFn: (data: typeof editForm) => api.user.updateProfile(user!.idUsers, data),
     onSuccess: () => {
       setSuccess("Profil berhasil diperbarui!");
       setIsEditing(false);
@@ -61,14 +61,14 @@ export default function Profile() {
 
   const likePostMutation = useMutation({
     mutationFn: ({ postId, type }: { postId: string; type: 'like' | 'dislike' }) =>
-      api.likePost(postId, user!.idUsers, type),
+      api.posts.likePost(postId, type),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
   });
 
   const deletePostMutation = useMutation({
-    mutationFn: (postId: string) => api.deletePost(postId, user!.idUsers),
+    mutationFn: (postId: string) => api.posts.deletePost(postId, user!.idUsers),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
@@ -155,7 +155,7 @@ export default function Profile() {
                 <div className="flex flex-col sm:flex-row sm:items-end space-y-4 sm:space-y-0 sm:space-x-4">
                   <div className="w-32 h-32 bg-gradient-to-r from-primary to-secondary rounded-full border-4 border-white flex items-center justify-center relative z-10">
                     <span className="text-white text-4xl font-bold">
-                      {user.username.charAt(0).toUpperCase()}
+                      {user.username ? user.username.charAt(0).toUpperCase() : user.email ? user.email.charAt(0).toUpperCase() : 'U'}
                     </span>
                   </div>
                   <div className="text-center sm:text-left">
