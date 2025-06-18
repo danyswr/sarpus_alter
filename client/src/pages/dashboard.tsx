@@ -39,7 +39,9 @@ export default function Dashboard() {
     mutationFn: (data: { judul: string; deskripsi: string; imageUrl?: string; userId: string }) =>
       api.posts.createPost(data),
     onSuccess: () => {
+      // Force refetch posts immediately
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.refetchQueries({ queryKey: ["/api/posts"] });
       setNewPost({ judul: "", deskripsi: "", imageUrl: "" });
     },
   });

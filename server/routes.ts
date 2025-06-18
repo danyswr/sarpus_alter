@@ -271,15 +271,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Google Apps Script returns posts directly as array
-      const posts = Array.isArray(result) ? result : result.posts || [];
+      let posts = Array.isArray(result) ? result : result.posts || [];
       
-      // Convert Google Drive URLs to directly viewable format
-      const postsWithConvertedUrls = posts.map((post: any) => ({
-        ...post,
-        imageUrl: post.imageUrl ? convertGoogleDriveUrl(post.imageUrl) : post.imageUrl
-      }));
+      // Fix the data structure issues from Google Apps Script
+      posts = posts.map((post: any) => {
+        // Handle mixed up data structure
+        let fixedPost = { ...post };
+        
+        // If timestamp contains text instead of date, it's likely swapped with judul
+        if (post.timestamp && typeof post.timestamp === 'string' && 
+            !post.timestamp.includes('2025') && !post.timestamp.includes('T')) {
+          fixedPost.judul = post.timestamp;
+          fixedPost.deskripsi = post.judul;
+          fixedPost.timestamp = post.deskripsi;
+        }
+        
+        // Ensure proper timestamp format
+        if (!fixedPost.timestamp || fixedPost.timestamp === '') {
+          fixedPost.timestamp = new Date().toISOString();
+        }
+        
+        // Convert Google Drive URLs to directly viewable format
+        if (fixedPost.imageUrl) {
+          fixedPost.imageUrl = convertGoogleDriveUrl(fixedPost.imageUrl);
+        }
+        
+        return fixedPost;
+      });
       
-      res.json(postsWithConvertedUrls);
+      // Sort posts by timestamp (newest first)
+      posts.sort((a: any, b: any) => {
+        const dateA = new Date(a.timestamp).getTime();
+        const dateB = new Date(b.timestamp).getTime();
+        return dateB - dateA;
+      });
+      
+      res.json(posts);
     } catch (error) {
       console.error("Get posts error:", error);
       res.status(500).json({ error: "Failed to fetch posts: " + (error instanceof Error ? error.message : 'Unknown error') });
@@ -296,9 +323,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: result.error });
       }
 
+      // Fix the returned post data structure if needed
+      let returnedPost = result.post;
+      if (returnedPost && returnedPost.imageUrl) {
+        returnedPost.imageUrl = convertGoogleDriveUrl(returnedPost.imageUrl);
+      }
+      
       res.json({
         message: result.message || "Postingan berhasil dibuat",
-        post: result.post,
+        post: returnedPost,
       });
     } catch (error) {
       console.error("Create post error:", error);
