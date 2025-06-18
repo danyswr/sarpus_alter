@@ -86,7 +86,7 @@ export default function Dashboard() {
 
   const likePostMutation = useMutation({
     mutationFn: ({ postId, type }: { postId: string; type: 'like' | 'dislike' }) =>
-      api.posts.likePost(postId, type),
+      api.posts.likePost(postId, type, user!.idUsers),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },

@@ -21,7 +21,7 @@ export default function Explore() {
 
   const likePostMutation = useMutation({
     mutationFn: ({ postId, type }: { postId: string; type: 'like' | 'dislike' }) =>
-      api.likePost(postId, user!.idUsers, type),
+      api.posts.likePost(postId, type, user?.idUsers || 'anonymous'),
     onMutate: async ({ postId, type }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
@@ -58,7 +58,7 @@ export default function Explore() {
   });
 
   const deletePostMutation = useMutation({
-    mutationFn: (postId: string) => api.deletePost(postId, user!.idUsers),
+    mutationFn: (postId: string) => api.posts.deletePost(postId, user!.idUsers),
     onMutate: async (postId: string) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["/api/posts"] });

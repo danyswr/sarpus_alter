@@ -104,8 +104,8 @@ export const postsApi = {
     return apiCall('/posts', 'POST', postData);
   },
 
-  likePost: async (postId: string, type: 'like' | 'dislike'): Promise<ApiResponse> => {
-    return apiCall(`/posts/${postId}/like`, 'POST', { type });
+  likePost: async (postId: string, type: 'like' | 'dislike', userId: string): Promise<ApiResponse> => {
+    return apiCall(`/posts/${postId}/like`, 'POST', { type, userId });
   },
 
   updatePost: async (postId: string, updateData: {
