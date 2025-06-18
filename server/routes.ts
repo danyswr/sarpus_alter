@@ -57,6 +57,9 @@ async function callGoogleScript(action: string, data: any = {}) {
   }
 }
 
+// Store for newly registered users (module level for persistence)
+const newlyRegisteredUsers: any[] = [];
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
@@ -73,11 +76,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { email: "sputnik1@gmail.com", password: "2HsWrK2iajyLillGfaU9k", idUsers: "USER17493922", username: "sputnik1", role: "Admin", nim: "ADM202307105", jurusan: "Teknik Informatik" }
       ];
 
-      // Check local fallback first
-      const localUser = knownUsers.find(u => 
+      // Check local fallback first (including newly registered users)
+      const allUsers = [...knownUsers, ...newlyRegisteredUsers];
+      const localUser = allUsers.find(u => 
         u.email.toLowerCase().trim() === email.toLowerCase().trim() && 
         u.password === password
       );
+
+      console.log(`Login attempt for: ${email}`);
+      console.log(`Available users: ${allUsers.length} (${knownUsers.length} known + ${newlyRegisteredUsers.length} newly registered)`);
+      if (newlyRegisteredUsers.length > 0) {
+        console.log('Newly registered users:', newlyRegisteredUsers.map(u => u.email));
+      }
 
       if (localUser) {
         console.log("Login successful with fallback auth for:", email);
@@ -132,6 +142,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (result.error) {
         return res.status(400).json({ error: result.error });
       }
+
+      // Add to fallback list for immediate login capability
+      const newUser = {
+        email: result.email,
+        password: userData.password,
+        idUsers: result.idUsers,
+        username: result.username,
+        role: result.role || "user",
+        nim: result.nim || "",
+        jurusan: result.jurusan || ""
+      };
+      newlyRegisteredUsers.push(newUser);
 
       res.json({
         message: result.message || "Registrasi berhasil",
