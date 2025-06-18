@@ -352,36 +352,59 @@ function handleUpdatePost(e) {
     var judul = updateData.judul;
     var deskripsi = updateData.deskripsi;
 
+    Logger.log("UPDATE POST - Received data: postId=" + postId + ", userId=" + userId + ", judul=" + judul + ", deskripsi=" + deskripsi);
+
     if (!postId || !userId) {
       return { error: "Post ID dan User ID harus diisi" };
     }
 
     var postingSheet = getOrCreateSheet("Posting");
     var data = postingSheet.getDataRange().getValues();
+    var postFound = false;
 
+    // Find and update the specific post
     for (var i = 1; i < data.length; i++) {
-      if (data[i][0] === postId && data[i][1] === userId) {
-        if (judul !== undefined) {
-          postingSheet.getRange(i + 1, 3).setValue(judul);
-        }
-        if (deskripsi !== undefined) {
-          postingSheet.getRange(i + 1, 4).setValue(deskripsi);
-        }
-        // TIDAK UPDATE TIMESTAMP - tetap preserve waktu posting asli
-        
-        return {
-          message: "Postingan berhasil diupdate",
-          post: {
-            id: postId,
-            judul: judul,
-            deskripsi: deskripsi,
-            updated: true
+      if (data[i][0] === postId) { // Match by post ID
+        // Check if user owns the post OR is admin
+        var userRole = getUserRole(userId);
+        if (data[i][1] === userId || userRole === 'admin') {
+          
+          // Update ONLY the content, NOT the timestamp
+          if (judul !== undefined && judul !== null) {
+            postingSheet.getRange(i + 1, 3).setValue(judul); // Column C (judul)
+            Logger.log("Updated judul for row " + (i + 1) + " to: " + judul);
           }
-        };
+          if (deskripsi !== undefined && deskripsi !== null) {
+            postingSheet.getRange(i + 1, 4).setValue(deskripsi); // Column D (deskripsi)
+            Logger.log("Updated deskripsi for row " + (i + 1) + " to: " + deskripsi);
+          }
+          
+          // IMPORTANT: DO NOT UPDATE TIMESTAMP - preserve original posting time
+          // postingSheet.getRange(i + 1, 6).setValue(new Date()); // <-- DO NOT DO THIS
+          
+          postFound = true;
+          
+          return {
+            message: "Postingan berhasil diupdate",
+            post: {
+              id: postId,
+              idPostingan: postId,
+              userId: userId,
+              judul: judul || data[i][2],
+              deskripsi: deskripsi || data[i][3],
+              timestamp: data[i][5], // Return original timestamp
+              updated: true
+            }
+          };
+        } else {
+          return { error: "Anda tidak memiliki izin untuk mengedit postingan ini" };
+        }
       }
     }
 
-    return { error: "Postingan tidak ditemukan atau Anda tidak memiliki izin" };
+    if (!postFound) {
+      return { error: "Postingan tidak ditemukan dengan ID: " + postId };
+    }
 
   } catch (error) {
     Logger.log("Update post error: " + error.toString());

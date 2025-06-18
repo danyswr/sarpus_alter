@@ -107,7 +107,13 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     
     setIsUpdating(true);
     try {
-      // Use the correct API endpoint format that matches our Google Apps Script
+      console.log('Updating post:', {
+        postId: post.idPostingan,
+        userId: user.idUsers,
+        judul: editJudul,
+        deskripsi: editDeskripsi
+      });
+
       const response = await fetch('/api/posts', {
         method: 'POST',
         headers: {
@@ -125,17 +131,28 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
       
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Update error:', errorData.error);
+        console.error('Update error:', errorData);
+        alert('Error updating post: ' + (errorData.error || 'Unknown error'));
         return;
       }
       
       const result = await response.json();
       console.log('Update successful:', result);
       
+      if (result.error) {
+        alert('Error: ' + result.error);
+        return;
+      }
+      
       setIsEditing(false);
-      if (onUpdate) onUpdate();
+      // Force refresh of posts list to show updated content
+      if (onUpdate) {
+        onUpdate();
+      }
+      
     } catch (error) {
       console.error('Update error:', error);
+      alert('Network error: ' + error.message);
     } finally {
       setIsUpdating(false);
     }
