@@ -30,11 +30,13 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
 - idPostingan, idUsers, judul, deskripsi, imageUrl, timestamp, likeCount, dislikeCount
 
 ## Recent Changes
-- Fixed API export issue in client/src/lib/api.ts
-- Corrected Express server routes to handle Google Apps Script response format
-- Created complete Google Apps Script (Code.gs) with all required functions
-- Updated authentication flow to properly parse user data from Google Sheets
-- Configured Google Drive integration for image uploads
+- ✓ Fixed API export issue in client/src/lib/api.ts
+- ✓ Corrected Express server routes to handle Google Apps Script response format
+- ✓ Created complete Google Apps Script (Code.gs) with all required functions
+- ✓ Updated authentication flow to properly parse user data from Google Sheets
+- ✓ Configured Google Drive integration for image uploads
+- ✓ Enhanced Google Apps Script with better email matching and debugging
+- ✓ Created setup guide for Google Apps Script deployment
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages

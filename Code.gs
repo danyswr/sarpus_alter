@@ -164,17 +164,34 @@ function handleLogin(e) {
       return { error: "Kolom email atau password tidak ditemukan" };
     }
 
+    // Debug: Log all emails in spreadsheet
+    Logger.log("Searching for email: " + email);
+    for (var k = 1; k < data.length; k++) {
+      Logger.log("Row " + k + " email: '" + data[k][emailCol] + "'");
+    }
+
     // Cari user berdasarkan email
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
       var userEmail = row[emailCol];
       var userPassword = row[passwordCol];
       
-      if (userEmail && userEmail.toString().toLowerCase() === email.toLowerCase()) {
+      // Normalize email strings and trim whitespace
+      var normalizedUserEmail = (userEmail || "").toString().trim().toLowerCase();
+      var normalizedInputEmail = email.toString().trim().toLowerCase();
+      
+      Logger.log("Comparing: '" + normalizedUserEmail + "' with '" + normalizedInputEmail + "'");
+      
+      if (normalizedUserEmail && normalizedUserEmail === normalizedInputEmail) {
         Logger.log("User found! Checking password...");
+        Logger.log("Stored password: '" + userPassword + "'");
+        Logger.log("Input password: '" + password + "'");
         
-        // Check password - support plain text
-        if (userPassword.toString() === password.toString()) {
+        // Check password - support plain text, normalize strings
+        var normalizedStoredPassword = (userPassword || "").toString().trim();
+        var normalizedInputPassword = password.toString().trim();
+        
+        if (normalizedStoredPassword === normalizedInputPassword) {
           Logger.log("Password match!");
           
           return {
@@ -190,7 +207,7 @@ function handleLogin(e) {
             website: row[findColumn(headers, "website")] || ""
           };
         } else {
-          Logger.log("Password mismatch!");
+          Logger.log("Password mismatch! Expected: '" + normalizedStoredPassword + "', Got: '" + normalizedInputPassword + "'");
           return { error: "Password salah" };
         }
       }
@@ -709,21 +726,31 @@ function findColumn(headers, columnName) {
 }
 
 function getCredentials(e) {
+  var email = "";
+  var password = "";
+  
+  // Try POST data first
   if (e.postData && e.postData.contents) {
     try {
       var postData = JSON.parse(e.postData.contents);
-      return {
-        email: postData.email,
-        password: postData.password
-      };
+      email = postData.email || "";
+      password = postData.password || "";
+      Logger.log("POST data parsed - Email: " + email + ", Password length: " + password.length);
     } catch (error) {
       Logger.log("Parse credentials error: " + error.toString());
     }
   }
   
+  // Fallback to GET parameters
+  if (!email || !password) {
+    email = e.parameter.email || email;
+    password = e.parameter.password || password;
+    Logger.log("Using GET parameters - Email: " + email + ", Password length: " + password.length);
+  }
+  
   return {
-    email: e.parameter.email || "",
-    password: e.parameter.password || ""
+    email: email,
+    password: password
   };
 }
 
