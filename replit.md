@@ -37,6 +37,7 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
 - ✓ Configured Google Drive integration for image uploads
 - ✓ Enhanced Google Apps Script with better email matching and debugging
 - ✓ Created setup guide for Google Apps Script deployment
+- ✓ Added temporary fallback authentication for immediate login access
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages
