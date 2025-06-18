@@ -141,7 +141,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fallback users (for development/testing)
       const fallbackUsers = [
         { email: "test@gmail.com", password: "123123123", idUsers: "USER_3", username: "test", role: "user", nim: "123312123", jurusan: "Hukum" },
-        { email: "admin@test.com", password: "admin123", idUsers: "ADMIN_1", username: "admin", role: "admin", nim: "ADM001", jurusan: "Admin" }
+        { email: "test9@gmail.com", password: "123123123", idUsers: "ADMIN_1", username: "admin", role: "admin", nim: "ADM001", jurusan: "Admin" },
+        { email: "admin@test.com", password: "admin123", idUsers: "ADMIN_2", username: "admin2", role: "admin", nim: "ADM002", jurusan: "Admin" }
       ];
 
       // Check fallback users and newly registered users
