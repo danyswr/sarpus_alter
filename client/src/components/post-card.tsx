@@ -89,14 +89,31 @@ export function PostCard({ post, onLike, onDelete }: PostCardProps) {
         
         {post.imageUrl && post.imageUrl.trim() !== "" && (
           <div className="relative w-full max-w-lg mb-3">
-            <div className="w-full bg-gray-100 rounded-xl border border-gray-200 p-4 flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
+            <img
+              src={post.imageUrl}
+              alt="Gambar postingan"
+              className="w-full h-auto rounded-xl border border-gray-200 object-cover max-h-96"
+              onError={(e) => {
+                // Fallback if image fails to load
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const fallback = target.nextElementSibling as HTMLElement;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+              onLoad={(e) => {
+                console.log('Image loaded successfully:', post.imageUrl);
+              }}
+            />
+            <div className="hidden w-full bg-gray-100 rounded-xl border border-gray-200 p-4 flex-col items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
                  onClick={() => {
                    // Extract file ID for proper Google Drive viewing
                    if (post.imageUrl) {
-                     const fileIdMatch = post.imageUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                     const fileIdMatch = post.imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
                      if (fileIdMatch) {
                        const viewUrl = `https://drive.google.com/file/d/${fileIdMatch[1]}/view`;
                        window.open(viewUrl, '_blank');
+                     } else {
+                       window.open(post.imageUrl, '_blank');
                      }
                    }
                  }}

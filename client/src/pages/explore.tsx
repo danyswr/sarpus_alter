@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { Navbar } from "@/components/navbar";
 import { PostCard } from "@/components/post-card";
@@ -14,13 +14,21 @@ export default function Explore() {
   const [searchQuery, setSearchQuery] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: posts = [], isLoading } = useQuery({
+  const { data: posts = [], isLoading } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
   const likePostMutation = useMutation({
     mutationFn: ({ postId, type }: { postId: string; type: 'like' | 'dislike' }) =>
       api.likePost(postId, user!.idUsers, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+    },
+  });
+
+  const deletePostMutation = useMutation({
+    mutationFn: (postId: string) => api.deletePost(postId, user!.idUsers),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
