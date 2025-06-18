@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const userData: User = {
-        idUsers: result.user.idUsers || result.user.id,
+        idUsers: result.user.idUsers,
         username: result.user.username,
         email: result.user.email,
         role: result.user.role,
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const newUser: User = {
-        idUsers: result.user.idUsers || result.user.id,
+        idUsers: result.user.idUsers,
         username: result.user.username,
         email: result.user.email,
         role: result.user.role,

@@ -3,7 +3,7 @@ const API_BASE_URL = "/api";
 
 // Types
 export interface User {
-  id: string;
+  idUsers: string;
   username: string;
   email: string;
   role: string;
@@ -14,6 +14,8 @@ export interface User {
 
 export interface Post {
   id: string;
+  idPostingan: string;
+  idUsers: string;
   userId: string;
   username: string;
   timestamp: string;
@@ -21,6 +23,8 @@ export interface Post {
   deskripsi: string;
   likes: number;
   dislikes: number;
+  likedBy?: string[];
+  dislikedBy?: string[];
   imageUrl?: string;
 }
 
@@ -104,8 +108,8 @@ export const postsApi = {
     return apiCall(`/posts/${postId}/like`, 'POST', { type });
   },
 
-  deletePost: async (postId: string): Promise<ApiResponse> => {
-    return apiCall(`/posts/${postId}`, 'DELETE');
+  deletePost: async (postId: string, userId: string): Promise<ApiResponse> => {
+    return apiCall(`/posts/${postId}`, 'DELETE', { userId });
   }
 };
 

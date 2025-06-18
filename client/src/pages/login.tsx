@@ -34,23 +34,15 @@ export default function Login() {
       setError("");
       
       console.log("Attempting login with:", data.email);
-      const loginResult = await login(data.email, data.password);
+      const userData = await login(data.email, data.password);
       console.log("Login successful, checking role for redirect");
       
-      // Get user data after login to check role
-      const savedUser = localStorage.getItem("feedbacku_user");
-      if (savedUser) {
-        const userData = JSON.parse(savedUser);
-        // Redirect based on role
-        if (userData.role === 'admin') {
-          console.log("Redirecting admin to admin panel");
-          window.location.href = "/admin";
-        } else {
-          console.log("Redirecting user to dashboard");
-          window.location.href = "/dashboard";
-        }
+      // Redirect based on role from returned user data
+      if (userData.role === 'admin') {
+        console.log("Redirecting admin to admin panel");
+        window.location.href = "/admin";
       } else {
-        // Fallback to dashboard if no user data
+        console.log("Redirecting user to dashboard");
         window.location.href = "/dashboard";
       }
     } catch (err) {
