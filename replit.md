@@ -6,7 +6,7 @@ FeedbackU is a modern student feedback platform built with a React frontend and 
 
 ## System Architecture
 
-The application follows a full-stack architecture with clear separation between frontend and backend:
+The application follows a full-stack architecture with Google Apps Script as the backend database:
 
 ### Frontend Architecture
 - **Framework**: React 18 with TypeScript
@@ -17,12 +17,11 @@ The application follows a full-stack architecture with clear separation between 
 - **UI Components**: Radix UI primitives with custom styling
 
 ### Backend Architecture
-- **Runtime**: Node.js with Express.js framework
-- **Language**: TypeScript with ES modules
-- **Database**: PostgreSQL with Drizzle ORM
-- **Database Provider**: Neon Database serverless
-- **Session Management**: Express sessions with PostgreSQL store
-- **File Structure**: Modular architecture with separate routes and storage layers
+- **Database**: Google Spreadsheet with Google Apps Script API
+- **Image Storage**: Google Drive with public access links
+- **Authentication**: Client-side session management with localStorage
+- **API Integration**: Direct HTTP requests to Google Apps Script web app
+- **File Structure**: Frontend-focused with Google backend integration
 
 ## Key Components
 
@@ -43,17 +42,22 @@ The application follows a full-stack architecture with clear separation between 
 - **Admin Users**: Additional privileges to manage all posts and view analytics
 
 ### Database Schema
-The application uses two main tables:
-- **Users**: Stores user information including credentials, student details (NIM, jurusan), and roles
-- **Posts**: Stores post content, metadata, and engagement metrics (likes/dislikes with user tracking)
+The application uses Google Spreadsheet with two main sheets:
+- **Users Sheet**: Stores user information including credentials, student details (NIM, jurusan), and roles
+- **Posts Sheet**: Stores post content, metadata, and engagement metrics (likes/dislikes with user tracking)
+
+### Google Integration
+- **Google Apps Script**: Serves as the backend API handling all database operations
+- **Google Drive**: Stores uploaded images with public access links
+- **Google Sheets**: Acts as the primary database with structured data storage
 
 ## Data Flow
 
-1. **User Registration/Login**: Frontend forms submit to `/api/auth/` endpoints
-2. **Post Creation**: Authenticated users submit posts via `/api/posts` endpoint
-3. **Post Interaction**: Like/dislike actions update post engagement metrics
-4. **Real-time Updates**: TanStack Query handles cache invalidation and refetching
-5. **Admin Operations**: Admin users can delete posts and view system analytics
+1. **User Registration/Login**: Frontend makes direct requests to Google Apps Script web app
+2. **Post Creation**: Posts are stored in Google Sheets with image URLs from Google Drive
+3. **Post Interaction**: Like/dislike actions update spreadsheet cells with user tracking
+4. **Image Upload**: Files are converted to base64 and uploaded to Google Drive folder
+5. **Admin Operations**: Role-based access control managed through spreadsheet data
 
 ## External Dependencies
 
