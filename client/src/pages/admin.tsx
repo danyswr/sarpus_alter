@@ -25,7 +25,7 @@ export default function Admin() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'admin')) {
+    if (!authLoading && (!user || !user.role || user.role.toLowerCase() !== 'admin')) {
       setLocation("/dashboard");
     }
   }, [user, authLoading, setLocation]);
