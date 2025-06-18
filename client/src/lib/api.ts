@@ -138,3 +138,13 @@ export const uploadApi = {
 export const testConnection = async (): Promise<ApiResponse> => {
   return apiCall('/test', 'GET');
 };
+
+// Main API object that consolidates all APIs
+export const api = {
+  auth: authApi,
+  posts: postsApi,
+  user: userApi,
+  admin: adminApi,
+  upload: uploadApi,
+  testConnection
+};
