@@ -375,14 +375,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/posts/:id/like", async (req, res) => {
     try {
-      const { id } = req.params;
-      const { type, userId } = likePostSchema.parse(req.body);
+      const postId = req.params.id;
+      const type = req.body.type || 'like';
+      const userId = req.body.userId || 'anonymous';
       
-      console.log(`Processing ${type || 'like'} for post ${id}`);
+      console.log("Like request data:", { postId, type, userId });
+      
+      console.log(`Processing ${type || 'like'} for post ${postId}`);
       
       // Use the unified likeDislike action from Google Apps Script
       const result = await callGoogleScript('likeDislike', { 
-        postId: id, 
+        postId: postId, 
         type: type || 'like',
         userId: userId || 'anonymous'
       });
@@ -392,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: result.error });
       }
 
-      console.log(`${type || 'like'} successful for post ${id}:`, result);
+      console.log(`${type || 'like'} successful for post ${postId}:`, result);
       
       res.json({
         message: result.message || `Berhasil ${type === 'dislike' ? 'dislike' : 'like'} postingan`,
