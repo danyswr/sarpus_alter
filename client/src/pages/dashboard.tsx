@@ -40,7 +40,6 @@ export default function Dashboard() {
       api.posts.createPost(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      setCreatePostOpen(false);
       setNewPost({ judul: "", deskripsi: "", imageUrl: "" });
     },
   });
