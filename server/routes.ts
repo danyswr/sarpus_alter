@@ -66,28 +66,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { email, password } = loginSchema.parse(req.body);
       
-      // Temporary fallback authentication while Google Apps Script is being updated
-      const knownUsers = [
+      console.log(`Login attempt for: ${email}`);
+
+      // Try Google Apps Script first (primary authentication)
+      try {
+        const result = await callGoogleScript('login', { email, password });
+        
+        if (!result.error) {
+          console.log("Login successful via Google Apps Script for:", email);
+          return res.json({
+            message: result.message || "Login berhasil",
+            user: {
+              idUsers: result.idUsers,
+              username: result.username,
+              email: result.email,
+              role: result.role,
+              nim: result.nim,
+              jurusan: result.jurusan
+            },
+          });
+        } else {
+          console.log("Google Apps Script login error:", result.error);
+        }
+      } catch (gasError) {
+        console.log("Google Apps Script connection error:", gasError);
+      }
+
+      // Fallback users (for development/testing)
+      const fallbackUsers = [
         { email: "test@gmail.com", password: "123123123", idUsers: "USER_3", username: "test", role: "user", nim: "123312123", jurusan: "Hukum" },
-        { email: "test5@gmail.com", password: "123123123", idUsers: "USER_1750169", username: "test5", role: "user", nim: "12345", jurusan: "Akuntansi" },
-        { email: "test2@gmail.com", password: "MTlzMTlzMTlz", idUsers: "USER_1750168", username: "test2", role: "user", nim: "123234534341", jurusan: "Hukum" },
-        { email: "test4@gmail.com", password: "MTlzMTlzMTlz", idUsers: "USER_1750169", username: "test4", role: "user", nim: "123534523", jurusan: "Hukum" },
-        { email: "danisiswara.173@gmail.com", password: "danis123", idUsers: "USER17493908", username: "kucing melayang", role: "user", nim: "202307100", jurusan: "Teknik Elektro" },
-        { email: "sputnik1@gmail.com", password: "2HsWrK2iajyLillGfaU9k", idUsers: "USER17493922", username: "sputnik1", role: "Admin", nim: "ADM202307105", jurusan: "Teknik Informatik" }
+        { email: "admin@test.com", password: "admin123", idUsers: "ADMIN_1", username: "admin", role: "admin", nim: "ADM001", jurusan: "Admin" }
       ];
 
-      // Check local fallback first (including newly registered users)
-      const allUsers = [...knownUsers, ...newlyRegisteredUsers];
+      // Check fallback users and newly registered users
+      const allUsers = [...fallbackUsers, ...newlyRegisteredUsers];
       const localUser = allUsers.find(u => 
         u.email.toLowerCase().trim() === email.toLowerCase().trim() && 
         u.password === password
       );
 
-      console.log(`Login attempt for: ${email}`);
-      console.log(`Available users: ${allUsers.length} (${knownUsers.length} known + ${newlyRegisteredUsers.length} newly registered)`);
-      if (newlyRegisteredUsers.length > 0) {
-        console.log('Newly registered users:', newlyRegisteredUsers.map(u => u.email));
-      }
+      console.log(`Available fallback users: ${allUsers.length} (${fallbackUsers.length} fallback + ${newlyRegisteredUsers.length} newly registered)`);
 
       if (localUser) {
         console.log("Login successful with fallback auth for:", email);
@@ -102,28 +120,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             jurusan: localUser.jurusan
           },
         });
-      }
-
-      // Try Google Apps Script as fallback
-      try {
-        const result = await callGoogleScript('login', { email, password });
-        
-        if (!result.error) {
-          // Google Apps Script returns user data directly, not wrapped in 'user' object
-          return res.json({
-            message: result.message || "Login berhasil",
-            user: {
-              idUsers: result.idUsers,
-              username: result.username,
-              email: result.email,
-              role: result.role,
-              nim: result.nim,
-              jurusan: result.jurusan
-            },
-          });
-        }
-      } catch (gasError) {
-        console.log("Google Apps Script unavailable, using fallback only");
       }
 
       return res.status(401).json({ error: "Email atau password salah" });
