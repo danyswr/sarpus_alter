@@ -27,19 +27,74 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
   const [editJudul, setEditJudul] = useState(post.judul || "");
   const [editDeskripsi, setEditDeskripsi] = useState(post.deskripsi || "");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
+  const [localLikes, setLocalLikes] = useState(post.likes || 0);
+  const [localDislikes, setLocalDislikes] = useState(post.dislikes || 0);
 
-  const handleLike = () => {
-    if (!user) return;
-    onLike(post.idPostingan, 'like');
-    setIsLiked(!isLiked);
-    if (isDisliked) setIsDisliked(false);
+  const handleLike = async () => {
+    if (!user || isLiking) return;
+    
+    // Optimistic UI update
+    const wasLiked = isLiked;
+    const wasDisliked = isDisliked;
+    
+    setIsLiking(true);
+    setIsLiked(!wasLiked);
+    if (wasDisliked) {
+      setIsDisliked(false);
+      setLocalDislikes(prev => Math.max(0, prev - 1));
+    }
+    if (!wasLiked) {
+      setLocalLikes(prev => prev + 1);
+    } else {
+      setLocalLikes(prev => Math.max(0, prev - 1));
+    }
+
+    try {
+      await onLike(post.idPostingan, 'like');
+    } catch (error) {
+      // Revert optimistic update on error
+      setIsLiked(wasLiked);
+      setIsDisliked(wasDisliked);
+      setLocalLikes(post.likes || 0);
+      setLocalDislikes(post.dislikes || 0);
+      console.error('Like failed:', error);
+    } finally {
+      setIsLiking(false);
+    }
   };
 
-  const handleDislike = () => {
-    if (!user) return;
-    onLike(post.idPostingan, 'dislike');
-    setIsDisliked(!isDisliked);
-    if (isLiked) setIsLiked(false);
+  const handleDislike = async () => {
+    if (!user || isLiking) return;
+    
+    // Optimistic UI update
+    const wasLiked = isLiked;
+    const wasDisliked = isDisliked;
+    
+    setIsLiking(true);
+    setIsDisliked(!wasDisliked);
+    if (wasLiked) {
+      setIsLiked(false);
+      setLocalLikes(prev => Math.max(0, prev - 1));
+    }
+    if (!wasDisliked) {
+      setLocalDislikes(prev => prev + 1);
+    } else {
+      setLocalDislikes(prev => Math.max(0, prev - 1));
+    }
+
+    try {
+      await onLike(post.idPostingan, 'dislike');
+    } catch (error) {
+      // Revert optimistic update on error
+      setIsLiked(wasLiked);
+      setIsDisliked(wasDisliked);
+      setLocalLikes(post.likes || 0);
+      setLocalDislikes(post.dislikes || 0);
+      console.error('Dislike failed:', error);
+    } finally {
+      setIsLiking(false);
+    }
   };
 
   const handleUpdatePost = async () => {
@@ -47,16 +102,19 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     
     setIsUpdating(true);
     try {
-      // Use direct API call for better compatibility
-      const response = await fetch(`/api/posts/${post.idPostingan}`, {
-        method: 'PUT',
+      // Use the correct API endpoint format that matches our Google Apps Script
+      const response = await fetch('/api/posts', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'updatePost',
+          postId: post.idPostingan,
+          idPostingan: post.idPostingan,
+          userId: user.idUsers,
           judul: editJudul,
-          deskripsi: editDeskripsi,
-          userId: user.idUsers
+          deskripsi: editDeskripsi
         })
       });
       
@@ -253,10 +311,10 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
             className={`flex items-center space-x-2 hover:text-blue-500 transition-colors ${
               isLiked ? 'text-blue-500' : ''
             }`}
-            disabled={!user}
+            disabled={!user || isLiking}
           >
             <ThumbsUp className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-            <span>{post.likes || 0}</span>
+            <span>{localLikes}</span>
           </Button>
           
           <Button
@@ -266,10 +324,10 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
             className={`flex items-center space-x-2 hover:text-red-500 transition-colors ${
               isDisliked ? 'text-red-500' : ''
             }`}
-            disabled={!user}
+            disabled={!user || isLiking}
           >
             <ThumbsDown className={`w-4 h-4 ${isDisliked ? 'fill-current' : ''}`} />
-            <span>{post.dislikes || 0}</span>
+            <span>{localDislikes}</span>
           </Button>
           
           <Button
