@@ -55,17 +55,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(result.error);
       }
 
-      if (!result.user?.id) {
+      if (!result.user) {
         throw new Error("Data login tidak lengkap dari server");
       }
 
       const userData: User = {
-        idUsers: result.user.id,
+        idUsers: result.user.idUsers || result.user.id,
         username: result.user.username,
         email: result.user.email,
         role: result.user.role,
-        nim: result.user.nim,
-        jurusan: result.user.jurusan
+        nim: result.user.nim || "",
+        jurusan: result.user.jurusan || ""
       };
 
       console.log("Setting user data:", userData);

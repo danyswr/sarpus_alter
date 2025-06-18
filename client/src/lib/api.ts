@@ -88,7 +88,7 @@ export const authApi = {
 export const postsApi = {
   getAllPosts: async (): Promise<ApiResponse> => {
     const result = await apiCall('/posts', 'GET');
-    return { posts: Array.isArray(result) ? result : [] };
+    return { success: true, posts: Array.isArray(result) ? result : [] };
   },
 
   createPost: async (postData: {
