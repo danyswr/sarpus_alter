@@ -109,6 +109,9 @@ export default function Explore() {
                         deletePostMutation.mutate(postId);
                       }
                     }}
+                    onUpdate={() => {
+                      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+                    }}
                   />
                 ))}
               </div>

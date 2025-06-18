@@ -410,17 +410,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/posts/:id", async (req, res) => {
+  app.put("/api/posts/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { userId } = req.body;
+      const { judul, deskripsi, userId } = req.body;
       
-      const result = await callGoogleScript('deletePost', { postId: id, userId });
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      const result = await callGoogleScript('updatePost', { 
+        postId: id, 
+        userId, 
+        judul, 
+        deskripsi 
+      });
       
       if (result.error) {
         return res.status(400).json({ error: result.error });
       }
 
+      res.json({
+        message: result.message || "Postingan berhasil diupdate",
+        post: result.post
+      });
+    } catch (error) {
+      console.error("Update post error:", error);
+      res.status(500).json({ error: "Failed to update post: " + (error instanceof Error ? error.message : 'Unknown error') });
+    }
+  });
+
+  app.delete("/api/posts/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId } = req.body;
+      
+      console.log(`Delete request for post ${id} by user ${userId}`);
+      
+      const result = await callGoogleScript('deletePost', { postId: id, userId });
+      
+      if (result.error) {
+        console.error("Delete error:", result.error);
+        return res.status(400).json({ error: result.error });
+      }
+
+      console.log("Delete successful:", result);
       res.json({ message: result.message || "Postingan berhasil dihapus" });
     } catch (error) {
       console.error("Delete post error:", error);

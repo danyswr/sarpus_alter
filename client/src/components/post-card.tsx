@@ -2,16 +2,20 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Heart, MessageCircle, Share2, Trash2, MoreHorizontal } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Heart, MessageCircle, Share2, Trash2, Edit3, Check, X } from "lucide-react";
 import type { Post } from "@/lib/api";
+import { updatePost } from "@/lib/api";
 
 interface PostCardProps {
   post: Post;
   onLike: (postId: string, type: 'like' | 'dislike') => void;
   onDelete?: (postId: string) => void;
+  onUpdate?: () => void;
 }
 
-export function PostCard({ post, onLike, onDelete }: PostCardProps) {
+export function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(
     user ? post.likedBy?.includes(user.idUsers) : false
@@ -19,6 +23,10 @@ export function PostCard({ post, onLike, onDelete }: PostCardProps) {
   const [isDisliked, setIsDisliked] = useState(
     user ? post.dislikedBy?.includes(user.idUsers) : false
   );
+  const [isEditing, setIsEditing] = useState(false);
+  const [editJudul, setEditJudul] = useState(post.judul || "");
+  const [editDeskripsi, setEditDeskripsi] = useState(post.deskripsi || "");
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleLike = () => {
     if (!user) return;
@@ -34,6 +42,31 @@ export function PostCard({ post, onLike, onDelete }: PostCardProps) {
     if (isLiked) setIsLiked(false);
   };
 
+  const handleUpdatePost = async () => {
+    if (!user) return;
+    
+    setIsUpdating(true);
+    try {
+      await updatePost(post.idPostingan, {
+        judul: editJudul,
+        deskripsi: editDeskripsi,
+        userId: user.idUsers
+      });
+      
+      setIsEditing(false);
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('Update error:', error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const canEdit = user && (
+    user.idUsers === post.idUsers || 
+    user.idUsers === post.userId
+  );
+
   const canDelete = user && (
     user.idUsers === post.idUsers || 
     user.idUsers === post.userId || 
@@ -43,12 +76,21 @@ export function PostCard({ post, onLike, onDelete }: PostCardProps) {
   const formatTimestamp = (timestamp: Date | string) => {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
     
-    if (diffInHours < 1) return 'Baru saja';
+    if (diffInMinutes < 1) return 'Baru saja';
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
     if (diffInHours < 24) return `${diffInHours}j`;
-    if (diffInHours < 24 * 7) return `${Math.floor(diffInHours / 24)}h`;
-    return date.toLocaleDateString('id-ID');
+    if (diffInDays < 7) return `${diffInDays}h`;
+    
+    return date.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
   };
 
   return (
@@ -61,31 +103,90 @@ export function PostCard({ post, onLike, onDelete }: PostCardProps) {
                 {post.username?.charAt(0).toUpperCase() || 'U'}
               </span>
             </div>
-            <div>
+            <div className="flex-1">
               <div className="flex items-center space-x-2 mb-1">
                 <h4 className="font-semibold text-gray-900">{post.username || 'Unknown User'}</h4>
                 <span className="text-gray-500">·</span>
                 <span className="text-gray-500 text-sm">{formatTimestamp(post.timestamp)}</span>
               </div>
-              <h3 className="font-bold text-lg text-gray-900">{post.judul}</h3>
+              {isEditing ? (
+                <Input
+                  value={editJudul}
+                  onChange={(e) => setEditJudul(e.target.value)}
+                  placeholder="Judul postingan..."
+                  className="font-bold text-lg mb-2"
+                />
+              ) : (
+                <h3 className="font-bold text-lg text-gray-900">{post.judul}</h3>
+              )}
             </div>
           </div>
           
-          {canDelete && onDelete && (
-            <Button
-              onClick={() => onDelete(post.idPostingan)}
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-red-500"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          )}
+          <div className="flex items-center space-x-1">
+            {isEditing ? (
+              <>
+                <Button
+                  onClick={handleUpdatePost}
+                  variant="ghost"
+                  size="sm"
+                  className="text-green-600 hover:text-green-700"
+                  disabled={isUpdating}
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditJudul(post.judul || "");
+                    setEditDeskripsi(post.deskripsi || "");
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                {canEdit && (
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-400 hover:text-blue-500"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </Button>
+                )}
+                {canDelete && onDelete && (
+                  <Button
+                    onClick={() => onDelete(post.idPostingan)}
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-400 hover:text-red-500"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </CardHeader>
 
       <CardContent className="pt-0">
-        <p className="text-gray-700 mb-3">{post.deskripsi}</p>
+        {isEditing ? (
+          <Textarea
+            value={editDeskripsi}
+            onChange={(e) => setEditDeskripsi(e.target.value)}
+            placeholder="Tulis keluh kesah Anda..."
+            className="mb-3 resize-none"
+            rows={3}
+          />
+        ) : (
+          <p className="text-gray-700 mb-3">{post.deskripsi}</p>
+        )}
         
         {post.imageUrl && post.imageUrl.trim() !== "" && (
           <div className="relative w-full max-w-lg mb-3">
