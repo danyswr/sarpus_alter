@@ -40,16 +40,47 @@ export default function Dashboard() {
   const createPostMutation = useMutation({
     mutationFn: (data: { judul: string; deskripsi: string; imageUrl?: string; userId: string }) =>
       api.posts.createPost(data),
+    onMutate: async (newPostData) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+      
+      // Snapshot the previous value
+      const previousPosts = queryClient.getQueryData<Post[]>(["/api/posts"]);
+      
+      // Optimistically add the new post to the beginning of the list
+      const optimisticPost: Post = {
+        id: `TEMP_${Date.now()}`,
+        idPostingan: `TEMP_${Date.now()}`,
+        userId: user!.idUsers,
+        idUsers: user!.idUsers,
+        username: user!.username,
+        timestamp: new Date().toISOString(),
+        judul: newPostData.judul,
+        deskripsi: newPostData.deskripsi,
+        likes: 0,
+        dislikes: 0,
+        imageUrl: newPostData.imageUrl || ""
+      };
+      
+      queryClient.setQueryData<Post[]>(["/api/posts"], (old) => 
+        old ? [optimisticPost, ...old] : [optimisticPost]
+      );
+      
+      return { previousPosts };
+    },
+    onError: (err, newPostData, context) => {
+      // Rollback on error
+      if (context?.previousPosts) {
+        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+      }
+    },
     onSuccess: () => {
       // Clear the form
       setNewPost({ judul: "", deskripsi: "", imageUrl: "" });
-      // Force multiple refresh strategies
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure consistency
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      queryClient.refetchQueries({ queryKey: ["/api/posts"] });
-      // Also manually trigger refetch
-      setTimeout(() => {
-        refetchPosts();
-      }, 1000);
     },
   });
 

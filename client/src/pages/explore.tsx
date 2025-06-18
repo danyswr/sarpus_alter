@@ -146,9 +146,24 @@ export default function Explore() {
               </Card>
             ) : (
               <div className="space-y-0">
-                {filteredPosts.map((post: Post) => (
+                {filteredPosts
+                  .sort((a, b) => {
+                    // Sort by timestamp (newest first)
+                    const dateA = new Date(a.timestamp).getTime();
+                    const dateB = new Date(b.timestamp).getTime();
+                    
+                    // If timestamps are the same or invalid, sort by ID (newer posts have higher IDs)
+                    if (isNaN(dateA) || isNaN(dateB) || Math.abs(dateA - dateB) < 1000) {
+                      const idA = parseInt(a.idPostingan.replace(/\D/g, '') || '0');
+                      const idB = parseInt(b.idPostingan.replace(/\D/g, '') || '0');
+                      return idB - idA;
+                    }
+                    
+                    return dateB - dateA;
+                  })
+                  .map((post: Post, index) => (
                   <PostCard
-                    key={post.idPostingan}
+                    key={`${post.idPostingan}-${index}-${post.timestamp}`}
                     post={post}
                     onLike={(postId, type) => {
                       if (user) {
