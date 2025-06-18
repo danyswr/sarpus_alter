@@ -44,6 +44,7 @@ export interface ApiResponse<T = any> {
   user?: User;
   posts?: Post[];
   post?: Post;
+  comment?: Comment;
   stats?: any;
   imageUrl?: string;
 }
