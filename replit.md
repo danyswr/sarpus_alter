@@ -17,11 +17,12 @@ The application follows a full-stack architecture with Google Apps Script as the
 - **UI Components**: Radix UI primitives with custom styling
 
 ### Backend Architecture
+- **Server**: Express.js with Google Apps Script integration
 - **Database**: Google Spreadsheet with Google Apps Script API
 - **Image Storage**: Google Drive with public access links
-- **Authentication**: Client-side session management with localStorage
-- **API Integration**: Direct HTTP requests to Google Apps Script web app
-- **File Structure**: Frontend-focused with Google backend integration
+- **Authentication**: Express API proxy to Google Apps Script
+- **API Integration**: Express server proxies requests to Google Apps Script
+- **File Structure**: Full-stack with Express backend and React frontend
 
 ## Key Components
 

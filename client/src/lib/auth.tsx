@@ -85,16 +85,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(result.error);
       }
 
-      if (!result.user?.id) {
-        throw new Error("Data registrasi tidak lengkap dari server");
-      }
-
-      if (!result.user || !result.user.id) {
+      if (!result.user) {
         throw new Error("Data registrasi tidak lengkap dari server");
       }
 
       const newUser: User = {
-        idUsers: result.user.id,
+        idUsers: result.user.idUsers || result.user.id,
         username: result.user.username,
         email: result.user.email,
         role: result.user.role,

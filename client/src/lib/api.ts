@@ -1,5 +1,5 @@
-// API configuration for Google Apps Script backend
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz8YWdcQSZlVkmsV6PIvh8E6vDeV1fnbaj51atRBjWAEa5NRhSveWmuSsBNSDGfzfT-/exec";
+// API configuration - use local Express server as proxy
+const API_BASE_URL = "/api";
 
 // Types
 export interface User {
@@ -35,24 +35,23 @@ export interface ApiResponse<T = any> {
   imageUrl?: string;
 }
 
-// Helper function to make API calls
-async function makeApiCall(action: string, data: any = {}): Promise<ApiResponse> {
+// Helper function to make API calls through Express backend
+async function apiCall(endpoint: string, method: string = 'GET', data?: any): Promise<ApiResponse> {
   try {
-    console.log('Making API call:', action, data);
+    console.log(`Making ${method} request to ${endpoint}:`, data);
     
-    const response = await fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'cors',
+    const options: RequestInit = {
+      method,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        action,
-        ...data
-      })
-    });
+    };
 
-    console.log('Response status:', response.status);
+    if (data && method !== 'GET') {
+      options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -70,7 +69,7 @@ async function makeApiCall(action: string, data: any = {}): Promise<ApiResponse>
 // Auth API
 export const authApi = {
   login: async (email: string, password: string): Promise<ApiResponse> => {
-    return makeApiCall('login', { email, password });
+    return apiCall('/auth/login', 'POST', { email, password });
   },
 
   register: async (userData: {
@@ -81,14 +80,15 @@ export const authApi = {
     jurusan?: string;
     gender?: string;
   }): Promise<ApiResponse> => {
-    return makeApiCall('register', userData);
+    return apiCall('/auth/register', 'POST', userData);
   }
 };
 
 // Posts API
 export const postsApi = {
   getAllPosts: async (): Promise<ApiResponse> => {
-    return makeApiCall('getPosts');
+    const result = await apiCall('/posts', 'GET');
+    return { posts: Array.isArray(result) ? result : [] };
   },
 
   createPost: async (postData: {
@@ -97,44 +97,44 @@ export const postsApi = {
     deskripsi: string;
     imageUrl?: string;
   }): Promise<ApiResponse> => {
-    return makeApiCall('createPost', postData);
+    return apiCall('/posts', 'POST', postData);
   },
 
   likePost: async (postId: string): Promise<ApiResponse> => {
-    return makeApiCall('likePost', { postId });
+    return apiCall(`/posts/${postId}/like`, 'POST', { type: 'like' });
   },
 
   dislikePost: async (postId: string): Promise<ApiResponse> => {
-    return makeApiCall('dislikePost', { postId });
+    return apiCall(`/posts/${postId}/like`, 'POST', { type: 'dislike' });
   }
 };
 
 // User API
 export const userApi = {
   getProfile: async (userId: string): Promise<ApiResponse> => {
-    return makeApiCall('getProfile', { userId });
+    return apiCall(`/users/${userId}`, 'GET');
   },
 
   updateProfile: async (userId: string, updates: Partial<User>): Promise<ApiResponse> => {
-    return makeApiCall('updateProfile', { userId, ...updates });
+    return apiCall(`/users/${userId}`, 'PUT', updates);
   }
 };
 
 // Admin API
 export const adminApi = {
   getStats: async (): Promise<ApiResponse> => {
-    return makeApiCall('getAdminStats');
+    return apiCall('/admin/stats', 'GET');
   }
 };
 
 // Upload API
 export const uploadApi = {
   uploadImage: async (imageBase64: string, fileName?: string): Promise<ApiResponse> => {
-    return makeApiCall('uploadImage', { imageBase64, fileName });
+    return apiCall('/upload', 'POST', { imageBase64, fileName });
   }
 };
 
 // Test connection
 export const testConnection = async (): Promise<ApiResponse> => {
-  return makeApiCall('test');
+  return apiCall('/test', 'GET');
 };
