@@ -178,17 +178,13 @@ export default function Dashboard() {
                           className="max-w-full h-auto rounded-lg border border-gray-200 max-h-96"
                           onError={(e) => {
                             console.error("Image failed to load:", newPost.imageUrl);
-                            // Don't clear the URL to allow user to see what went wrong
-                            e.currentTarget.style.display = 'none';
+                            // Show error message instead of hiding
+                            e.currentTarget.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDIwMCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTUwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iNzUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Q0EzQUYiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCI+R2FtYmFyIGRhcmkgR29vZ2xlIERyaXZlPC90ZXh0Pgo8L3N2Zz4K";
                           }}
                           onLoad={() => {
                             console.log("Image loaded successfully:", newPost.imageUrl);
                           }}
                         />
-                        {/* Show a placeholder if image fails to load */}
-                        <div className="text-center text-gray-500 text-sm mt-2">
-                          {newPost.imageUrl.includes('drive.google.com') ? 'Gambar dari Google Drive' : 'Gambar terupload'}
-                        </div>
                         <Button
                           onClick={() => setNewPost(prev => ({ ...prev, imageUrl: "" }))}
                           variant="destructive"

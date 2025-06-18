@@ -42,6 +42,25 @@ const likePostSchema = z.object({
   type: z.enum(['like', 'dislike']).optional(),
 });
 
+// Helper function to convert Google Drive URLs to directly viewable format
+function convertGoogleDriveUrl(url: string): string {
+  if (!url) return url;
+  
+  // If URL contains file ID, extract it and convert to direct view format
+  const fileIdMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (fileIdMatch) {
+    const fileId = fileIdMatch[1];
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  }
+  
+  // If already in direct format, return as is
+  if (url.includes('drive.google.com/uc?') && url.includes('export=view')) {
+    return url;
+  }
+  
+  return url;
+}
+
 // Helper function to call Google Apps Script
 async function callGoogleScript(action: string, data: any = {}) {
   try {
@@ -242,7 +261,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Google Apps Script returns posts directly as array
-      res.json(Array.isArray(result) ? result : result.posts || []);
+      const posts = Array.isArray(result) ? result : result.posts || [];
+      
+      // Convert Google Drive URLs to directly viewable format
+      const postsWithConvertedUrls = posts.map(post => ({
+        ...post,
+        imageUrl: post.imageUrl ? convertGoogleDriveUrl(post.imageUrl) : post.imageUrl
+      }));
+      
+      res.json(postsWithConvertedUrls);
     } catch (error) {
       console.error("Get posts error:", error);
       res.status(500).json({ error: "Failed to fetch posts: " + (error instanceof Error ? error.message : 'Unknown error') });
@@ -373,9 +400,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
+        // Convert Google Drive URL to directly viewable format
+        const directImageUrl = convertGoogleDriveUrl(result.imageUrl);
+        
         res.json({
           message: result.message || "Image uploaded successfully",
-          imageUrl: result.imageUrl,
+          imageUrl: directImageUrl,
           fileId: result.fileId,
         });
       } catch (uploadError) {
