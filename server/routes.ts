@@ -225,8 +225,8 @@ async function callGoogleScript(action: string, data: any = {}) {
             comment: {
               id: "COMMENT_" + Date.now(),
               idComment: "COMMENT_" + Date.now(),
-              idPostingan: data.postId,
-              userId: data.userId,
+              idPostingan: data.idPostingan,
+              idUsers: data.idUsers,
               comment: data.comment,
               timestamp: new Date().toISOString()
             }
@@ -571,8 +571,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Creating comment for post ${postId} by user ${userId}`);
       
       const result = await callGoogleScript('createComment', {
-        postId: postId,
-        userId: userId,
+        idPostingan: postId,
+        idUsers: userId,
         comment: comment
       });
       
