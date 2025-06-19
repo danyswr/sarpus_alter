@@ -168,7 +168,7 @@ export const adminApi = {
 // Upload API
 export const uploadApi = {
   uploadImage: async (imageBase64: string, fileName?: string): Promise<ApiResponse> => {
-    return apiCall('/upload', 'POST', { imageBase64, fileName });
+    return apiCall('/upload', 'POST', { imageBase64: imageBase64, fileName });
   }
 };
 
