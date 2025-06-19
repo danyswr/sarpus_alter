@@ -182,25 +182,66 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
   const handlePostComment = async () => {
     if (!user || !newComment.trim() || isPostingComment) return;
     
+    const commentText = newComment.trim();
+    const tempId = 'temp_' + Date.now();
+    
+    // Optimistic UI update - add comment immediately
+    const optimisticComment: Comment = {
+      id: tempId,
+      idComment: tempId,
+      idPostingan: post.idPostingan,
+      userId: user.idUsers,
+      idUsers: user.idUsers,
+      commentText: commentText,
+      comment: commentText,
+      timestamp: new Date().toISOString(),
+      username: user.username
+    };
+    
+    setComments(prev => [...prev, optimisticComment]);
+    setNewComment("");
     setIsPostingComment(true);
+    
     try {
-      const result = await api.posts.createComment(post.idPostingan, user.idUsers, newComment.trim());
+      const result = await api.posts.createComment(post.idPostingan, user.idUsers, commentText);
       console.log('Comment creation result:', result);
       
-      if (result.comment) {
-        const newCommentWithUsername = {
-          ...result.comment,
-          username: user.username
-        };
-        setComments(prev => [...prev, newCommentWithUsername]);
-        setNewComment("");
-      } else if (result.message && result.message.includes('berhasil')) {
-        // Reload comments to get the new one
-        loadComments();
-        setNewComment("");
+      if (result.comment || (result.message && result.message.includes('berhasil'))) {
+        // Replace optimistic comment with real one
+        let realComment: Comment;
+        if (result.comment) {
+          realComment = {
+            ...result.comment,
+            userId: result.comment.idUsers || result.comment.userId || user.idUsers,
+            commentText: result.comment.comment || result.comment.commentText || commentText,
+            username: user.username
+          };
+        } else {
+          realComment = {
+            id: 'COMMENT_' + Date.now(),
+            idComment: 'COMMENT_' + Date.now(),
+            idPostingan: post.idPostingan,
+            userId: user.idUsers,
+            idUsers: user.idUsers,
+            commentText: commentText,
+            comment: commentText,
+            timestamp: new Date().toISOString(),
+            username: user.username
+          };
+        }
+        
+        setComments(prev => prev.map(c => 
+          c.id === tempId ? realComment : c
+        ));
+      } else {
+        // Remove optimistic comment on failure
+        setComments(prev => prev.filter(c => c.id !== tempId));
+        alert('Gagal membuat komentar');
       }
     } catch (error) {
       console.error('Error posting comment:', error);
+      // Remove optimistic comment on error
+      setComments(prev => prev.filter(c => c.id !== tempId));
       alert('Error posting comment: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsPostingComment(false);
@@ -210,12 +251,20 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
   const handleDeleteComment = async (commentId: string) => {
     if (!user) return;
     
+    // Optimistic UI update - remove comment immediately
+    const commentToDelete = comments.find(c => (c.idComment || c.id) === commentId);
+    setComments(prev => prev.filter(c => (c.idComment || c.id) !== commentId));
+    
     try {
       const result = await api.posts.deleteComment(commentId, user.idUsers);
       console.log('Delete comment result:', result);
       
-      if (result.message && result.message.includes('berhasil')) {
-        setComments(prev => prev.filter(c => (c.idComment || c.id) !== commentId));
+      if (!result.message || !result.message.includes('berhasil')) {
+        // Restore comment if deletion failed
+        if (commentToDelete) {
+          setComments(prev => [...prev, commentToDelete]);
+        }
+        alert('Gagal menghapus komentar');
       }
     } catch (error) {
       console.error('Error deleting comment:', error);

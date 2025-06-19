@@ -33,8 +33,9 @@ export default function Dashboard() {
   const { data: posts = [], isLoading, refetch: refetchPosts } = useQuery({
     queryKey: ["/api/posts"],
     enabled: !!user,
-    refetchInterval: 10000, // Refetch every 10 seconds
-    staleTime: 5000, // Consider data stale after 5 seconds
+    refetchInterval: 3000, // Refetch every 3 seconds for real-time feel
+    staleTime: 1000, // Consider data stale after 1 second
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
   }) as { data: Post[], isLoading: boolean, refetch: () => void };
 
   const createPostMutation = useMutation({
