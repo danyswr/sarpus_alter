@@ -50,6 +50,7 @@ export interface ApiResponse<T = any> {
   comment?: Comment;
   stats?: any;
   imageUrl?: string;
+  token?: string;
 }
 
 // Helper function to make API calls through Express backend
@@ -57,11 +58,19 @@ async function apiCall(endpoint: string, method: string = 'GET', data?: any): Pr
   try {
     console.log(`Making ${method} request to ${endpoint}:`, data);
     
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add authorization header if token exists
+    const token = localStorage.getItem("feedbacku_token");
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    
     const options: RequestInit = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     };
 
     if (data && method !== 'GET') {
@@ -86,7 +95,7 @@ async function apiCall(endpoint: string, method: string = 'GET', data?: any): Pr
 // Auth API
 export const authApi = {
   login: async (email: string, password: string): Promise<ApiResponse> => {
-    return apiCall('/auth/login', 'POST', { email, password });
+    return apiCall('/login', 'POST', { email, password });
   },
 
   register: async (userData: {
@@ -97,7 +106,7 @@ export const authApi = {
     jurusan?: string;
     gender?: string;
   }): Promise<ApiResponse> => {
-    return apiCall('/auth/register', 'POST', userData);
+    return apiCall('/register', 'POST', userData);
   }
 };
 
