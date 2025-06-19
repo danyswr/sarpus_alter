@@ -132,10 +132,9 @@ async function callGoogleScript(action: string, data: any = {}) {
     
     // Check if response is HTML error page  
     if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html>')) {
-      console.error('Google Apps Script returned HTML error page');
+      console.error('Google Apps Script returned HTML error page - GAS needs to be updated');
       if (responseText.includes('response.getHeaders is not a function')) {
-        console.error('CRITICAL: Google Apps Script needs to be updated - response.getHeaders error detected');
-        throw new Error('Google Apps Script perlu diupdate: Ganti dengan kode yang sudah diperbaiki (hapus response.getHeaders)');
+        throw new Error('Google Apps Script needs to be updated - response.getHeaders error detected');
       }
       throw new Error('Google Apps Script returned HTML error page');
     }

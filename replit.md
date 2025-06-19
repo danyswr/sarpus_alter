@@ -48,6 +48,9 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
 - ✓ Updated backend to match new Google Apps Script structure (likePost action)
 - ✓ Implemented HTML error detection for Google Apps Script responses
 - ✓ Created optimistic UI updates for comment and like functionality
+- ✓ Identified and documented Google Apps Script error: response.getHeaders is not a function
+- ✓ Backend fully adapted to handle GAS errors gracefully with clear error messages
+- ✓ Created comprehensive fix guide for Google Apps Script deployment issues
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages
