@@ -45,6 +45,9 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
 - ✓ Enhanced delete performance with optimistic UI updates
 - ✓ Fixed comment system implementation with fallback mechanisms
 - ✓ Added robust error handling for Google Apps Script connectivity issues
+- ✓ Updated backend to match new Google Apps Script structure (likePost action)
+- ✓ Implemented HTML error detection for Google Apps Script responses
+- ✓ Created optimistic UI updates for comment and like functionality
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages
