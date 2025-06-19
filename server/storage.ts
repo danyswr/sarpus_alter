@@ -35,10 +35,21 @@ export class MemStorage implements IStorage {
       idUsers: "ADMIN123",
       username: "Admin User",
       email: "admin@admin.admin",
-      password: "admin123",
-      nim: "ADM123456",
+      password: "$2b$10$eZnHPHn5sIKgL.M.U7doAu7Opg3JDwlocnokfVWckvgmX7lN7dHvK", // hashed "admin123"
+      nim: "ADM123456", 
       jurusan: "Teknik Informatika",
       role: "admin"
+    });
+
+    // Add test user for testing
+    this.createUser({
+      idUsers: "TEST123",
+      username: "Test User",
+      email: "test3@gmail.com",
+      password: "$2b$10$b2MI/X5xLxOJCI6KQudau.d3nzyJGD7MltfGLxdqTGdVbhubXHDvW", // hashed "12312313"
+      nim: "TEST123456",
+      jurusan: "Teknik Informatika", 
+      role: "user"
     });
   }
 
