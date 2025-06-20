@@ -502,45 +502,38 @@ export function registerRoutes(app: Express): Server {
         console.log("Admin deleting post:", postId, "by user:", currentUser.username);
         
         try {
-          const deleteResult = await storage.deletePost(postId);
+          const deleteResult = await storage.deletePost(postId, currentUser.idUsers);
           
-          // Broadcast post deletion to all connected clients in real-time
-          broadcastToAll({
-            type: 'post_deleted',
-            postId: postId,
-            deletedBy: currentUser.username,
-            isAdmin: true,
-            timestamp: new Date().toISOString(),
-            message: `Admin ${currentUser.username} menghapus post`
-          });
-          
-          res.json({
-            message: "Post berhasil dihapus oleh admin",
-            success: true,
-            adminDelete: true,
-            deletedBy: currentUser.username,
-            actualDelete: deleteResult
-          });
+          if (deleteResult) {
+            // Broadcast post deletion to all connected clients in real-time
+            broadcastToAll({
+              type: 'post_deleted',
+              postId: postId,
+              deletedBy: currentUser.username,
+              isAdmin: true,
+              timestamp: new Date().toISOString(),
+              message: `Admin ${currentUser.username} menghapus post`
+            });
+            
+            res.json({
+              message: "Post berhasil dihapus oleh admin",
+              success: true,
+              adminDelete: true,
+              deletedBy: currentUser.username,
+              actualDelete: deleteResult
+            });
+          } else {
+            res.status(500).json({
+              message: "Gagal menghapus post",
+              success: false
+            });
+          }
         } catch (deleteError) {
           console.error("Admin delete error:", deleteError);
-          
-          // Broadcast simulated deletion
-          broadcastToAll({
-            type: 'post_deleted',
-            postId: postId,
-            deletedBy: currentUser.username,
-            isAdmin: true,
-            simulated: true,
-            timestamp: new Date().toISOString(),
-            message: `Admin ${currentUser.username} menghapus post`
-          });
-          
-          res.json({
-            message: "Post berhasil dihapus oleh admin",
-            success: true,
-            adminDelete: true,
-            deletedBy: currentUser.username,
-            simulated: true
+          res.status(500).json({
+            message: "Terjadi kesalahan saat menghapus post",
+            success: false,
+            error: deleteError instanceof Error ? deleteError.message : String(deleteError)
           });
         }
         return;
@@ -558,7 +551,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       // User owns the post - proceed with deletion
-      const deleted = await storage.deletePost(postId);
+      const deleted = await storage.deletePost(postId, currentUser.idUsers);
       if (!deleted) {
         return res.status(500).json({ message: "Gagal menghapus post" });
       }
