@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Sidebar } from "@/components/sidebar";
@@ -6,11 +6,12 @@ import { PostCard } from "@/components/post-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Post } from "@/lib/api";
-import { Edit, Save, X } from "lucide-react";
+import { Edit, Save, X, Camera, Upload } from "lucide-react";
 
 export default function Profile() {
   const { user, isLoading: authLoading } = useAuth();
@@ -21,10 +22,18 @@ export default function Profile() {
     username: "",
     email: "",
     nim: "",
+    gender: "",
     jurusan: "",
+    bio: "",
+    location: "",
+    website: "",
+    profileImageUrl: "",
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -33,11 +42,17 @@ export default function Profile() {
     }
     if (user) {
       setEditForm({
-        username: user.username,
-        email: user.email,
+        username: user.username || "",
+        email: user.email || "",
         nim: user.nim || "",
+        gender: user.gender || "",
         jurusan: user.jurusan || "",
+        bio: user.bio || "",
+        location: user.location || "",
+        website: user.website || "",
+        profileImageUrl: user.profileImageUrl || "",
       });
+      setProfileImage(user.profileImageUrl || null);
     }
   }, [user, authLoading, setLocation]);
 
@@ -58,6 +73,73 @@ export default function Profile() {
       setError(err instanceof Error ? err.message : "Gagal memperbarui profil");
     },
   });
+
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const base64 = reader.result as string;
+            const base64Data = base64.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+            
+            const response = await fetch('/api/upload', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
+              body: JSON.stringify({
+                image: base64Data,
+                fileName: file.name
+              }),
+            });
+            
+            if (!response.ok) {
+              throw new Error('Gagal mengupload gambar');
+            }
+            
+            const result = await response.json();
+            resolve(result.imageUrl);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = () => reject(new Error('Gagal membaca file'));
+        reader.readAsDataURL(file);
+      });
+    },
+    onSuccess: (imageUrl: string) => {
+      setProfileImage(imageUrl);
+      setIsUploadingImage(false);
+      setSuccess("Foto profil berhasil diupload!");
+      // Update form with new image URL
+      setEditForm(prev => ({ ...prev, profileImageUrl: imageUrl }));
+    },
+    onError: (err) => {
+      setIsUploadingImage(false);
+      setError(err instanceof Error ? err.message : "Gagal mengupload foto");
+    },
+  });
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError("Ukuran file maksimal 5MB");
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        setError("File harus berupa gambar");
+        return;
+      }
+      
+      setIsUploadingImage(true);
+      setError("");
+      uploadImageMutation.mutate(file);
+    }
+  };
 
   const likePostMutation = useMutation({
     mutationFn: ({ postId, type }: { postId: string; type: 'like' | 'dislike' }) =>
@@ -94,6 +176,11 @@ export default function Profile() {
     "Akuntansi",
     "Hukum",
     "Kedokteran"
+  ];
+
+  const genderOptions = [
+    { value: "male", label: "Laki-laki" },
+    { value: "female", label: "Perempuan" }
   ];
 
   const handleSaveProfile = () => {
@@ -153,29 +240,80 @@ export default function Profile() {
             <CardContent className="px-6 pb-6">
               <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between -mt-16 relative">
                 <div className="flex flex-col sm:flex-row sm:items-end space-y-4 sm:space-y-0 sm:space-x-4">
-                  <div className="w-32 h-32 bg-gradient-to-r from-primary to-secondary rounded-full border-4 border-white flex items-center justify-center relative z-10">
-                    <span className="text-white text-4xl font-bold">
-                      {user.username ? user.username.charAt(0).toUpperCase() : user.email ? user.email.charAt(0).toUpperCase() : 'U'}
-                    </span>
+                  <div className="relative">
+                    <div className="w-32 h-32 bg-gradient-to-r from-primary to-secondary rounded-full border-4 border-white flex items-center justify-center relative z-10 overflow-hidden">
+                      {profileImage || user.profileImageUrl ? (
+                        <img 
+                          src={profileImage || user.profileImageUrl} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-white text-4xl font-bold">
+                          {user.username ? user.username.charAt(0).toUpperCase() : user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Profile Image Upload Button */}
+                    <Button
+                      size="sm"
+                      className="absolute bottom-0 right-0 w-10 h-10 rounded-full p-0 bg-white border-2 border-gray-200 hover:bg-gray-50"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingImage}
+                    >
+                      {isUploadingImage ? (
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Camera className="w-4 h-4 text-gray-600" />
+                      )}
+                    </Button>
+                    
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
                   </div>
                   <div className="text-center sm:text-left">
                     {isEditing ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Input
                           value={editForm.username}
                           onChange={(e) => setEditForm(prev => ({ ...prev, username: e.target.value }))}
-                          className="text-2xl font-bold"
+                          placeholder="Username"
+                          className="text-lg font-semibold"
                         />
                         <Input
                           value={editForm.email}
                           onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
                           type="email"
+                          placeholder="Email"
                         />
-                        <Input
-                          value={editForm.nim}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, nim: e.target.value }))}
-                          placeholder="NIM"
-                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Input
+                            value={editForm.nim}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, nim: e.target.value }))}
+                            placeholder="NIM"
+                          />
+                          <Select
+                            value={editForm.gender}
+                            onValueChange={(value) => setEditForm(prev => ({ ...prev, gender: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih Gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {genderOptions.map((gender) => (
+                                <SelectItem key={gender.value} value={gender.value}>
+                                  {gender.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <Select
                           value={editForm.jurusan}
                           onValueChange={(value) => setEditForm(prev => ({ ...prev, jurusan: value }))}
@@ -191,15 +329,91 @@ export default function Profile() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <Textarea
+                          value={editForm.bio}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                          placeholder="Bio (ceritakan tentang diri Anda)"
+                          className="resize-none"
+                          rows={3}
+                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Input
+                            value={editForm.location}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                            placeholder="Lokasi"
+                          />
+                          <Input
+                            value={editForm.website}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, website: e.target.value }))}
+                            placeholder="Website/Portfolio"
+                            type="url"
+                          />
+                        </div>
                       </div>
                     ) : (
-                      <>
+                      <div className="space-y-2">
                         <h2 className="text-2xl font-bold text-gray-900">{user.username}</h2>
                         <p className="text-gray-600">{user.email}</p>
-                        <p className="text-gray-500 text-sm">NIM: {user.nim}</p>
-                        <p className="text-gray-500 text-sm">{user.jurusan}</p>
-                        <p className="text-gray-500 text-sm capitalize">Role: {user.role}</p>
-                      </>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                          {user.nim && (
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-gray-700">NIM:</span>
+                              <span className="text-gray-600">{user.nim}</span>
+                            </div>
+                          )}
+                          
+                          {user.gender && (
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-gray-700">Gender:</span>
+                              <span className="text-gray-600 capitalize">
+                                {user.gender === 'male' ? 'Laki-laki' : 'Perempuan'}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {user.jurusan && (
+                            <div className="flex items-center space-x-2 sm:col-span-2">
+                              <span className="font-medium text-gray-700">Jurusan:</span>
+                              <span className="text-gray-600">{user.jurusan}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {user.bio && (
+                          <div className="mt-3">
+                            <p className="text-gray-700 text-sm leading-relaxed">{user.bio}</p>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          {user.location && (
+                            <div className="flex items-center space-x-1 text-gray-600">
+                              <span>📍</span>
+                              <span>{user.location}</span>
+                            </div>
+                          )}
+                          
+                          {user.website && (
+                            <div className="flex items-center space-x-1">
+                              <span>🔗</span>
+                              <a 
+                                href={user.website.startsWith('http') ? user.website : `https://${user.website}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 hover:underline"
+                              >
+                                {user.website}
+                              </a>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center space-x-1 text-gray-600">
+                            <span>👤</span>
+                            <span className="capitalize">{user.role}</span>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -219,10 +433,15 @@ export default function Profile() {
                         onClick={() => {
                           setIsEditing(false);
                           setEditForm({
-                            username: user.username,
-                            email: user.email,
+                            username: user.username || "",
+                            email: user.email || "",
                             nim: user.nim || "",
+                            gender: user.gender || "",
                             jurusan: user.jurusan || "",
+                            bio: user.bio || "",
+                            location: user.location || "",
+                            website: user.website || "",
+                            profileImageUrl: user.profileImageUrl || "",
                           });
                         }}
                         variant="outline"

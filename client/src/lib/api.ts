@@ -13,6 +13,7 @@ export interface User {
   bio?: string;
   location?: string;
   website?: string;
+  profileImageUrl?: string;
 }
 
 export interface Post {

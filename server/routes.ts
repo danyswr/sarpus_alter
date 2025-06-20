@@ -452,7 +452,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Upload image (simulated)
+  // Upload image for profile
   app.post("/api/upload", async (req, res) => {
     try {
       const currentUser = await getCurrentUser(req);
@@ -460,21 +460,32 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { imageData, fileName } = uploadImageSchema.parse(req.body);
-      
-      // In a real app, you would save to cloud storage
-      // For now, return a mock URL
-      const mockImageUrl = `https://images.unsplash.com/photo-1557804506-669a67965ba0?w=500&h=500&fit=crop`;
+      // Handle multipart form data
+      if (!req.body || !req.body.image) {
+        return res.status(400).json({ message: "No image provided" });
+      }
+
+      // Convert image to base64 for Google Apps Script
+      const imageBase64 = req.body.image;
+      const fileName = req.body.fileName || `profile_${currentUser.idUsers}_${Date.now()}.jpg`;
+
+      // Call Google Apps Script uploadImage action
+      const result = await storage.makeRequest('uploadImage', {
+        imageData: imageBase64,
+        fileName: fileName,
+        userId: currentUser.idUsers
+      });
+
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
+      }
 
       res.json({
         message: "Upload berhasil",
-        url: mockImageUrl,
-        imageUrl: mockImageUrl
+        imageUrl: result.imageUrl || result.url,
+        success: true
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Data tidak valid", errors: error.errors });
-      }
       console.error("Upload error:", error);
       res.status(500).json({ message: "Terjadi kesalahan saat upload" });
     }
