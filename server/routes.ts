@@ -41,6 +41,13 @@ export function registerRoutes(app: Express): Server {
   // Session management (simple in-memory for demo)
   const sessions = new Map<string, { userId: string; expires: Date; userData?: any }>();
 
+  // Admin email patterns for validation
+  const adminEmailPatterns = [
+    "admin@test.com",
+    "uniqueadmin2024@test.com",
+    "coba@gmail.com"
+  ];
+
   function generateSessionToken(): string {
     return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
   }
@@ -328,15 +335,32 @@ export function registerRoutes(app: Express): Server {
       });
       
       if (isAdmin) {
-        // Admin can delete any post - simulate successful deletion for now
+        // Admin can delete any post - call actual delete function
         console.log("Admin deleting post:", postId, "by user:", currentUser.username);
         
-        res.json({
-          message: "Post berhasil dihapus oleh admin",
-          success: true,
-          adminDelete: true,
-          deletedBy: currentUser.username
-        });
+        try {
+          const deleteResult = await storage.deletePost(postId);
+          
+          if (deleteResult) {
+            res.json({
+              message: "Post berhasil dihapus oleh admin",
+              success: true,
+              adminDelete: true,
+              deletedBy: currentUser.username
+            });
+          } else {
+            res.status(500).json({
+              message: "Gagal menghapus post",
+              success: false
+            });
+          }
+        } catch (deleteError) {
+          console.error("Admin delete error:", deleteError);
+          res.status(500).json({
+            message: "Terjadi kesalahan saat menghapus post",
+            error: deleteError instanceof Error ? deleteError.message : 'Unknown error'
+          });
+        }
         return;
       }
 
