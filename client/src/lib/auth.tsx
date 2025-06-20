@@ -37,8 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const savedUser = localStorage.getItem("feedbacku_user");
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const userData = JSON.parse(savedUser);
+        // Only set the user data, not the token
+        setUser({
+          idUsers: userData.idUsers,
+          username: userData.username,
+          email: userData.email,
+          role: userData.role,
+          nim: userData.nim,
+          jurusan: userData.jurusan
+        });
       } catch (error) {
+        console.error("Error parsing saved user data:", error);
         localStorage.removeItem("feedbacku_user");
       }
     }
@@ -129,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
+    console.error("AuthContext is undefined. Check if AuthProvider is properly wrapping the component tree.");
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
