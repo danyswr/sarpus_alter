@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Sidebar } from "@/components/sidebar";
 import { PostCard } from "@/components/post-card";
+import { ImageUploadWithPreview } from "@/components/ImageUploadWithPreview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,16 +52,14 @@ export default function Dashboard() {
       
       // Optimistically add the new post to the beginning of the list
       const optimisticPost: Post = {
-        id: `TEMP_${Date.now()}`,
         idPostingan: `TEMP_${Date.now()}`,
-        userId: user!.idUsers,
         idUsers: user!.idUsers,
         username: user!.username,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(),
         judul: newPostData.judul,
         deskripsi: newPostData.deskripsi,
-        likes: 0,
-        dislikes: 0,
+        like: 0,
+        dislike: 0,
         imageUrl: newPostData.imageUrl || ""
       };
       
@@ -88,7 +87,7 @@ export default function Dashboard() {
 
   const likePostMutation = useMutation({
     mutationFn: ({ postId, type }: { postId: string; type: 'like' | 'dislike' }) =>
-      api.posts.likePost(postId, type, user!.idUsers),
+      api.posts.likePost(postId, type),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["google-posts"] });
     },
@@ -204,78 +203,19 @@ export default function Dashboard() {
                       rows={3}
                     />
                     
-                    {/* Image Preview */}
-                    {(newPost.imageUrl || uploadImageMutation.isPending) && (
-                      <div className="relative inline-block">
-                        <div className="relative w-full max-w-md">
-                          {uploadImageMutation.isPending ? (
-                            <div className="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex flex-col items-center justify-center text-gray-500">
-                              <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mb-2"></div>
-                              <span className="text-sm">Mengupload ke Google Drive...</span>
-                            </div>
-                          ) : (
-                            <img 
-                              src={newPost.imageUrl} 
-                              alt="Preview gambar" 
-                              className="w-full h-auto rounded-lg border border-gray-200 max-h-96 object-cover"
-                              onLoad={() => {
-                                console.log("Preview image loaded successfully:", newPost.imageUrl);
-                              }}
-                              onError={(e) => {
-                                console.error("Preview image failed to load:", newPost.imageUrl);
-                              }}
-                            />
-                          )}
-                        </div>
-                        {!uploadImageMutation.isPending && (
-                          <Button
-                            onClick={() => setNewPost(prev => ({ ...prev, imageUrl: "" }))}
-                            variant="destructive"
-                            size="sm"
-                            className="absolute top-2 right-2 w-8 h-8 p-0 rounded-full"
-                          >
-                            ×
-                          </Button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Upload Status */}
-                    {uploadImageMutation.isPending && (
-                      <div className="flex items-center space-x-2 text-sm text-blue-600 py-2">
-                        <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                        <span>Mengupload gambar...</span>
-                      </div>
-                    )}
+                    {/* Image Upload Component */}
+                    <ImageUploadWithPreview
+                      onImageUpload={handleImageUpload}
+                      onImageRemove={() => setNewPost(prev => ({ ...prev, imageUrl: "" }))}
+                      imageUrl={newPost.imageUrl}
+                      isUploading={uploadImageMutation.isPending}
+                      disabled={createPostMutation.isPending}
+                    />
                   </div>
 
                   {/* Actions Bar */}
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-4">
                     <div className="flex items-center space-x-1">
-                      {/* Image Upload Button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-primary hover:bg-primary/10 p-2"
-                        onClick={() => document.getElementById('image-upload-input')?.click()}
-                        disabled={uploadImageMutation.isPending}
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                        </svg>
-                      </Button>
-                      
-                      {/* Hidden file input */}
-                      <input
-                        id="image-upload-input"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleImageUpload(file);
-                        }}
-                        className="hidden"
-                      />
 
                       <span className="text-sm text-gray-500">
                         {newPost.deskripsi.length}/280
@@ -343,17 +283,17 @@ export default function Dashboard() {
                   
                   // If timestamps are the same or invalid, sort by ID (newer posts have higher IDs)
                   if (isNaN(dateA) || isNaN(dateB) || Math.abs(dateA - dateB) < 1000) {
-                    const idA = parseInt((a.idPostingan || a.id || '0').replace(/\D/g, '') || '0');
-                    const idB = parseInt((b.idPostingan || b.id || '0').replace(/\D/g, '') || '0');
+                    const idA = parseInt((a.idPostingan || '0').replace(/\D/g, '') || '0');
+                    const idB = parseInt((b.idPostingan || '0').replace(/\D/g, '') || '0');
                     return idB - idA;
                   }
                   
                   return dateB - dateA;
                 })
                 .map((post: Post, index: number) => {
-                console.log(`Rendering post ${post.id}:`, post);
+                console.log(`Rendering post ${post.idPostingan}:`, post);
                 // Create a truly unique key by combining all available identifiers
-                const baseId = post.idPostingan || post.id || `temp-${index}`;
+                const baseId = post.idPostingan || `temp-${index}`;
                 const timestamp = post.timestamp ? new Date(post.timestamp).getTime() : Date.now() + index;
                 const content = (post.judul + post.deskripsi).slice(0, 10).replace(/\s/g, '');
                 const uniqueKey = `${baseId}-${timestamp}-${content}-${index}`;
