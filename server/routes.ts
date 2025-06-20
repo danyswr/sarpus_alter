@@ -77,14 +77,24 @@ export function registerRoutes(app: Express): Server {
 
   // Middleware to get current user
   async function getCurrentUser(req: any): Promise<any> {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const authHeader = req.headers.authorization;
+    console.log("Auth header received:", authHeader);
+    
+    const token = authHeader?.replace('Bearer ', '');
     if (!token) {
+      console.log("No token found in request");
       return null;
     }
     
+    console.log("Looking for session with token:", token);
     const session = sessions.get(token);
     if (!session || session.expires < new Date()) {
-      if (session) sessions.delete(token);
+      if (session) {
+        console.log("Session expired, deleting");
+        sessions.delete(token);
+      } else {
+        console.log("Session not found for token");
+      }
       return null;
     }
     
