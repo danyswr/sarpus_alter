@@ -302,6 +302,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       const { postId } = req.params;
+      const { userId } = req.body || {};
       
       console.log("Delete attempt:", {
         userId: currentUser.idUsers,

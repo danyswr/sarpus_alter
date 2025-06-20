@@ -166,9 +166,10 @@ export const postsApi = {
     });
   },
 
-  deletePost: async (postId: string): Promise<ApiResponse> => {
+  deletePost: async (postId: string, userId?: string): Promise<ApiResponse> => {
     return apiCall(`/posts/${postId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      body: JSON.stringify({ userId })
     });
   },
 
