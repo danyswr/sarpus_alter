@@ -74,6 +74,8 @@ export const notificationSchema = z.object(notifications);
 // Insert schemas (omit auto-generated fields)
 export const insertUserSchema = userSchema.omit({ timestamp: true, lastProfileUpdate: true });
 export const insertPostSchema = postSchema.omit({ 
+  idPostingan: true,
+  idUsers: true,
   timestamp: true, 
   like: true, 
   dislike: true, 

@@ -349,11 +349,18 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const validatedData = createPostSchema.parse(req.body);
+      // Simple validation - just check required fields
+      const { judul, deskripsi, imageUrl } = req.body;
+      
+      if (!judul || !deskripsi) {
+        return res.status(400).json({ message: "Judul dan deskripsi harus diisi" });
+      }
       
       const postId = generatePostId();
       const post = await storage.createPost({
-        ...validatedData,
+        judul,
+        deskripsi,
+        imageUrl: imageUrl || "",
         idPostingan: postId,
         idUsers: currentUser.idUsers
       });
