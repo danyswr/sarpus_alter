@@ -15,8 +15,9 @@ export default function Explore() {
   const queryClient = useQueryClient();
 
   const { data: posts = [], isLoading } = useQuery<Post[]>({
-    queryKey: ["/api/posts"],
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    queryKey: ["google-posts-explore"],
+    queryFn: () => api.posts.getAllPosts(),
+    refetchInterval: 10000,
   });
 
   const likePostMutation = useMutation({
@@ -24,13 +25,13 @@ export default function Explore() {
       api.posts.likePost(postId, type, user?.idUsers || 'anonymous'),
     onMutate: async ({ postId, type }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+      await queryClient.cancelQueries({ queryKey: ["google-posts-explore"] });
       
       // Snapshot the previous value
-      const previousPosts = queryClient.getQueryData<Post[]>(["/api/posts"]);
+      const previousPosts = queryClient.getQueryData<Post[]>(["google-posts-explore"]);
       
       // Optimistically update the post
-      queryClient.setQueryData<Post[]>(["/api/posts"], (old) => {
+      queryClient.setQueryData<Post[]>(["google-posts-explore"], (old) => {
         if (!old) return [];
         return old.map(post => {
           if (post.idPostingan === postId) {
@@ -49,11 +50,11 @@ export default function Explore() {
     onError: (err, variables, context) => {
       // Rollback on error
       if (context?.previousPosts) {
-        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+        queryClient.setQueryData(["google-posts-explore"], context.previousPosts);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["google-posts-explore"] });
     },
   });
 
@@ -61,13 +62,13 @@ export default function Explore() {
     mutationFn: (postId: string) => api.posts.deletePost(postId, user!.idUsers),
     onMutate: async (postId: string) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+      await queryClient.cancelQueries({ queryKey: ["google-posts-explore"] });
       
       // Snapshot the previous value
-      const previousPosts = queryClient.getQueryData<Post[]>(["/api/posts"]);
+      const previousPosts = queryClient.getQueryData<Post[]>(["google-posts-explore"]);
       
       // Optimistically remove the post
-      queryClient.setQueryData<Post[]>(["/api/posts"], (old) => 
+      queryClient.setQueryData<Post[]>(["google-posts-explore"], (old) => 
         old ? old.filter(post => post.idPostingan !== postId) : []
       );
       
@@ -76,12 +77,12 @@ export default function Explore() {
     onError: (err, postId, context) => {
       // Rollback on error
       if (context?.previousPosts) {
-        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+        queryClient.setQueryData(["google-posts-explore"], context.previousPosts);
       }
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["google-posts-explore"] });
     },
   });
 

@@ -31,11 +31,12 @@ export default function Dashboard() {
   }, [user, authLoading, setLocation]);
 
   const { data: posts = [], isLoading, refetch: refetchPosts } = useQuery({
-    queryKey: ["/api/posts"],
+    queryKey: ["google-posts"],
+    queryFn: () => api.posts.getAllPosts(),
     enabled: !!user,
-    refetchInterval: 3000, // Refetch every 3 seconds for real-time feel
-    staleTime: 1000, // Consider data stale after 1 second
-    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchInterval: 3000,
+    staleTime: 1000,
+    refetchOnWindowFocus: true,
   }) as { data: Post[], isLoading: boolean, refetch: () => void };
 
   const createPostMutation = useMutation({
@@ -43,10 +44,10 @@ export default function Dashboard() {
       api.posts.createPost(data),
     onMutate: async (newPostData) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+      await queryClient.cancelQueries({ queryKey: ["google-posts"] });
       
       // Snapshot the previous value
-      const previousPosts = queryClient.getQueryData<Post[]>(["/api/posts"]);
+      const previousPosts = queryClient.getQueryData<Post[]>(["google-posts"]);
       
       // Optimistically add the new post to the beginning of the list
       const optimisticPost: Post = {
@@ -63,7 +64,7 @@ export default function Dashboard() {
         imageUrl: newPostData.imageUrl || ""
       };
       
-      queryClient.setQueryData<Post[]>(["/api/posts"], (old) => 
+      queryClient.setQueryData<Post[]>(["google-posts"], (old) => 
         old ? [optimisticPost, ...old] : [optimisticPost]
       );
       
@@ -72,7 +73,7 @@ export default function Dashboard() {
     onError: (err, newPostData, context) => {
       // Rollback on error
       if (context?.previousPosts) {
-        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+        queryClient.setQueryData(["google-posts"], context.previousPosts);
       }
     },
     onSuccess: () => {
@@ -81,7 +82,7 @@ export default function Dashboard() {
     },
     onSettled: () => {
       // Always refetch after error or success to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["google-posts"] });
     },
   });
 
@@ -89,14 +90,14 @@ export default function Dashboard() {
     mutationFn: ({ postId, type }: { postId: string; type: 'like' | 'dislike' }) =>
       api.posts.likePost(postId, type, user!.idUsers),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["google-posts"] });
     },
   });
 
   const deletePostMutation = useMutation({
     mutationFn: (postId: string) => api.posts.deletePost(postId, user!.idUsers),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["google-posts"] });
     },
   });
 

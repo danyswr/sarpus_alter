@@ -89,6 +89,7 @@ async function callGoogleScript(action: string, data: any = {}): Promise<ApiResp
     }
   } catch (error) {
     console.log(`POST method failed for ${action}:`, error);
+    // Continue to GET method
   }
   
   // Try GET method with parameters
@@ -119,41 +120,8 @@ async function callGoogleScript(action: string, data: any = {}): Promise<ApiResp
     console.log(`GET method failed for ${action}:`, error);
   }
   
-  // If both methods fail, return default success responses for certain actions
-  console.log(`Both methods failed for ${action}, returning fallback response`);
-  
-  switch (action) {
-    case 'register':
-      return {
-        message: "Registrasi berhasil",
-        user: {
-          idUsers: "USER_" + Date.now(),
-          username: data.username,
-          email: data.email,
-          role: "user",
-          redirect: "/dashboard"
-        }
-      };
-    case 'login':
-      return {
-        message: "Login berhasil",
-        user: {
-          idUsers: "USER_" + Date.now(),
-          username: data.email.split('@')[0],
-          email: data.email,
-          role: "user",
-          redirect: "/dashboard"
-        }
-      };
-    case 'test':
-      return {
-        message: "Connection successful",
-        timestamp: new Date().toISOString(),
-        status: "ok"
-      };
-    default:
-      return { error: `Failed to connect to Google Apps Script for ${action}` };
-  }
+  // If both methods fail, throw error
+  throw new Error(`Failed to connect to Google Apps Script for ${action}`);
 }
 
 // Auth API
@@ -176,9 +144,17 @@ export const authApi = {
 
 // Posts API
 export const postsApi = {
-  getAllPosts: async (): Promise<ApiResponse> => {
+  getAllPosts: async (): Promise<Post[]> => {
     const result = await callGoogleScript('getPosts');
-    return { success: true, posts: Array.isArray(result) ? result : [] };
+    // Google Apps Script returns posts directly as an array
+    if (Array.isArray(result)) {
+      return result;
+    }
+    // If wrapped in an object
+    if (result && result.posts) {
+      return result.posts;
+    }
+    return [];
   },
 
   createPost: async (postData: {
@@ -252,8 +228,7 @@ export const testConnection = async (): Promise<ApiResponse> => {
 
 // Legacy API functions for backward compatibility
 export const getPosts = async (): Promise<Post[]> => {
-  const result = await postsApi.getAllPosts();
-  return result.posts || [];
+  return await postsApi.getAllPosts();
 };
 
 export const createPost = async (postData: {
