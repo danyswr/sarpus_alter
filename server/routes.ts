@@ -629,13 +629,14 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      // Handle multipart form data
-      if (!req.body || !req.body.image) {
+      // Handle JSON data with base64 image
+      if (!req.body || !req.body.imageData) {
+        console.log("Upload request body:", req.body);
         return res.status(400).json({ message: "No image provided" });
       }
 
       // Convert image to base64 for Google Apps Script
-      const imageBase64 = req.body.image;
+      const imageBase64 = req.body.imageData;
       const fileName = req.body.fileName || `profile_${currentUser.idUsers}_${Date.now()}.jpg`;
 
       // Call Google Apps Script uploadImage action
