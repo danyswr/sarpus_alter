@@ -39,39 +39,53 @@ export function registerRoutes(app: Express): Server {
   const server = createServer(app);
 
   // Session management (simple in-memory for demo)
-  const sessions = new Map<string, { userId: string; expires: Date }>();
+  const sessions = new Map<string, { userId: string; expires: Date; userData?: any }>();
 
   function generateSessionToken(): string {
     return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
   }
 
-  function createSession(userId: string): string {
+  function createSession(userId: string, userData?: any): string {
     const token = generateSessionToken();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-    sessions.set(token, { userId, expires });
+    sessions.set(token, { userId, expires, userData });
+    console.log("Created session:", { token, userId, expires });
     return token;
   }
 
   function validateSession(token: string): string | null {
     const session = sessions.get(token);
     if (!session || session.expires < new Date()) {
-      if (session) sessions.delete(token);
+      if (session) {
+        console.log("Session expired for token:", token);
+        sessions.delete(token);
+      } else {
+        console.log("Session not found for token:", token);
+      }
       return null;
     }
+    console.log("Valid session for token:", token, "userId:", session.userId);
     return session.userId;
   }
 
   // Middleware to get current user
   async function getCurrentUser(req: any): Promise<any> {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) return null;
+    if (!token) {
+      return null;
+    }
     
-    const userId = validateSession(token);
-    if (!userId) return null;
+    const session = sessions.get(token);
+    if (!session || session.expires < new Date()) {
+      if (session) sessions.delete(token);
+      return null;
+    }
     
-    // Since getUser is not available in Google Apps Script, 
-    // we'll return a minimal user object with the userId
-    return { idUsers: userId };
+    // Return full user data from session
+    return { 
+      idUsers: session.userId,
+      ...session.userData
+    };
   }
 
   // Test connection
@@ -150,8 +164,8 @@ export function registerRoutes(app: Express): Server {
       }
 
       if (result.user) {
-        // Create session
-        const token = createSession(result.user.idUsers);
+        // Create session with user data
+        const token = createSession(result.user.idUsers, result.user);
 
         res.json({
           message: result.message || "Login berhasil",
@@ -294,33 +308,32 @@ export function registerRoutes(app: Express): Server {
     try {
       const currentUser = await getCurrentUser(req);
       if (!currentUser) {
+        console.log("Unauthorized like attempt - no current user");
         return res.status(401).json({ message: "Unauthorized" });
       }
 
       const { postId } = req.params;
-      const { type } = likePostSchema.parse({ ...req.body, postId, userId: currentUser.idUsers });
-
-      // Handle like/dislike interaction
-      const interaction = {
-        idPostingan: postId,
-        idUsers: currentUser.idUsers,
-        interactionType: type as 'like' | 'dislike'
-      };
+      const { type } = req.body;
       
-      await storage.createOrUpdateInteraction(interaction);
-      const updatedPost = await storage.getPost(postId);
-      if (!updatedPost) {
-        return res.status(404).json({ message: "Post tidak ditemukan" });
+      console.log("Like/dislike request:", { postId, type, userId: currentUser.idUsers });
+
+      // Call Google Apps Script directly for likePost action
+      const result = await storage.makeRequest('likePost', {
+        postId: postId,
+        userId: currentUser.idUsers,
+        type: type
+      });
+
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
       }
 
       res.json({
-        message: `Post berhasil di-${type}`,
-        post: updatedPost
+        message: result.message || `Post berhasil di-${type}`,
+        post: result.post,
+        success: true
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Data tidak valid", errors: error.errors });
-      }
       console.error("Like post error:", error);
       res.status(500).json({ message: "Terjadi kesalahan saat memproses like" });
     }
@@ -457,28 +470,32 @@ export function registerRoutes(app: Express): Server {
     try {
       const currentUser = await getCurrentUser(req);
       if (!currentUser) {
+        console.log("Unauthorized comment attempt - no current user");
         return res.status(401).json({ message: "Unauthorized" });
       }
 
       const { postId } = req.params;
-      const { comment } = createCommentSchema.parse(req.body);
+      const { comment } = req.body;
       
-      const commentId = generateCommentId();
-      const newComment = await storage.createComment({
-        idComment: commentId,
+      console.log("Create comment request:", { postId, comment, userId: currentUser.idUsers });
+
+      // Call Google Apps Script directly for createComment action
+      const result = await storage.makeRequest('createComment', {
         idPostingan: postId,
         idUsers: currentUser.idUsers,
-        comment
+        comment: comment
       });
 
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
+      }
+
       res.json({
-        message: "Komentar berhasil dibuat",
-        comment: newComment
+        message: result.message || "Komentar berhasil dibuat",
+        comment: result.comment,
+        success: true
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Data tidak valid", errors: error.errors });
-      }
       console.error("Create comment error:", error);
       res.status(500).json({ message: "Terjadi kesalahan saat membuat komentar" });
     }

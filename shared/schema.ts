@@ -21,21 +21,32 @@ export const users = {
 export const posts = {
   idPostingan: z.string(),
   idUsers: z.string(),
+  userId: z.string().optional(),
   judul: z.string(),
   deskripsi: z.string(),
   imageUrl: z.string().optional(),
   timestamp: z.date().default(() => new Date()),
   like: z.number().default(0),
   dislike: z.number().default(0),
+  likes: z.number().optional(),
+  dislikes: z.number().optional(),
+  likeCount: z.number().optional(),
+  dislikeCount: z.number().optional(),
   username: z.string().optional(),
+  likedBy: z.array(z.string()).optional(),
+  dislikedBy: z.array(z.string()).optional(),
 };
 
 export const comments = {
   idComment: z.string(),
+  id: z.string().optional(),
   idPostingan: z.string(),
   idUsers: z.string(),
+  userId: z.string().optional(),
   comment: z.string(),
+  commentText: z.string().optional(),
   timestamp: z.date().default(() => new Date()),
+  username: z.string().optional(),
 };
 
 export const userInteractions = {
@@ -62,7 +73,19 @@ export const notificationSchema = z.object(notifications);
 
 // Insert schemas (omit auto-generated fields)
 export const insertUserSchema = userSchema.omit({ timestamp: true, lastProfileUpdate: true });
-export const insertPostSchema = postSchema.omit({ timestamp: true, like: true, dislike: true });
+export const insertPostSchema = postSchema.omit({ 
+  timestamp: true, 
+  like: true, 
+  dislike: true, 
+  likes: true, 
+  dislikes: true, 
+  likeCount: true, 
+  dislikeCount: true,
+  username: true,
+  likedBy: true,
+  dislikedBy: true,
+  userId: true
+});
 export const insertCommentSchema = commentSchema.omit({ timestamp: true });
 export const insertUserInteractionSchema = userInteractionSchema.omit({ timestamp: true });
 export const insertNotificationSchema = notificationSchema.omit({ timestamp: true });

@@ -28,8 +28,8 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
   const [editDeskripsi, setEditDeskripsi] = useState(post.deskripsi || "");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
-  const [localLikes, setLocalLikes] = useState(post.likes || 0);
-  const [localDislikes, setLocalDislikes] = useState(post.dislikes || 0);
+  const [localLikes, setLocalLikes] = useState(post.like || post.likes || 0);
+  const [localDislikes, setLocalDislikes] = useState(post.dislike || post.dislikes || 0);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -203,7 +203,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     setIsPostingComment(true);
     
     try {
-      const result = await api.posts.createComment(post.idPostingan, user.idUsers, commentText);
+      const result = await api.posts.createComment(post.idPostingan, commentText);
       console.log('Comment creation result:', result);
       
       if (result.comment || (result.message && result.message.includes('berhasil'))) {
@@ -225,7 +225,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
             idUsers: user.idUsers,
             commentText: commentText,
             comment: commentText,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date().toISOString() as any,
             username: user.username
           };
         }
@@ -256,7 +256,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
     setComments(prev => prev.filter(c => (c.idComment || c.id) !== commentId));
     
     try {
-      const result = await api.posts.deleteComment(commentId, user.idUsers);
+      const result = await api.posts.deleteComment(commentId);
       console.log('Delete comment result:', result);
       
       if (!result.message || !result.message.includes('berhasil')) {
@@ -550,11 +550,11 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
                           </span>
                           <div className="flex items-center space-x-2">
                             <span className="text-xs text-gray-500">
-                              {formatCommentTime(comment.timestamp)}
+                              {formatCommentTime(comment.timestamp?.toString() || '')}
                             </span>
                             {user && (user.idUsers === comment.userId || user.idUsers === comment.idUsers || user.role === 'admin') && (
                               <Button
-                                onClick={() => handleDeleteComment(comment.idComment || comment.id)}
+                                onClick={() => handleDeleteComment(comment.idComment || comment.id || '')}
                                 variant="ghost"
                                 size="sm"
                                 className="text-gray-400 hover:text-red-500 p-1 h-auto"

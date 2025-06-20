@@ -18,20 +18,32 @@ export interface User {
 export interface Post {
   idPostingan: string;
   idUsers: string;
+  userId?: string;
   judul: string;
   deskripsi: string;
   imageUrl?: string;
   timestamp: Date;
-  likeCount: number;
-  dislikeCount: number;
+  likeCount?: number;
+  dislikeCount?: number;
+  like?: number;
+  dislike?: number;
+  likes?: number;
+  dislikes?: number;
+  username?: string;
+  likedBy?: string[];
+  dislikedBy?: string[];
 }
 
 export interface Comment {
   idComment: string;
+  id?: string;
   idPostingan: string;
   idUsers: string;
+  userId?: string;
   comment: string;
-  timestamp: Date;
+  commentText?: string;
+  timestamp: Date | string;
+  username?: string;
 }
 
 export interface ApiResponse<T = any> {
