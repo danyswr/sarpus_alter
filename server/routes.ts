@@ -331,7 +331,7 @@ export function registerRoutes(app: Express): Server {
         username: currentUser.username,
         emailIncludes: currentUser.email?.includes("admin"),
         usernameIncludes: currentUser.username?.includes("admin"),
-        arrayCheck: adminEmailPatterns.includes(currentUser.email)
+        arrayCheck: adminEmailPatterns.includes(currentUser.email || "")
       });
       
       if (isAdmin) {
