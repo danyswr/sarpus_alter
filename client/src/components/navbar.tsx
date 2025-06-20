@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Menu, Plus } from "lucide-react";
+import { RealTimeNotifications } from "@/components/RealTimeNotifications";
 
 interface NavbarProps {
   onCreatePost?: () => void;
@@ -54,6 +55,7 @@ export function Navbar({ onCreatePost, onToggleSidebar }: NavbarProps) {
           <div className="flex items-center space-x-3">
             {user ? (
               <>
+                <RealTimeNotifications />
                 {onCreatePost && (
                   <Button
                     onClick={onCreatePost}

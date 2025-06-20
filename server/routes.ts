@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { storage } from "./googleSheetsStorage";
@@ -38,8 +39,115 @@ async function verifyPassword(password: string, hashedPassword: string): Promise
 export function registerRoutes(app: Express): Server {
   const server = createServer(app);
 
+  // WebSocket Server setup for real-time features
+  const wss = new WebSocketServer({ server: server, path: '/ws' });
+  
+  // Store connected clients with user info
+  const connectedClients = new Map<string, { ws: WebSocket; userId: string; userData: any }>();
+  const userConnections = new Map<string, string[]>(); // userId -> array of client IDs
+
   // Session management (simple in-memory for demo)
   const sessions = new Map<string, { userId: string; expires: Date; userData?: any }>();
+
+  // WebSocket connection handling
+  wss.on('connection', (ws, req) => {
+    const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`WebSocket client connected: ${clientId}`);
+    
+    // Handle client authentication
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        if (data.type === 'auth') {
+          const userId = validateSession(data.token);
+          if (userId) {
+            const session = sessions.get(data.token);
+            connectedClients.set(clientId, { 
+              ws, 
+              userId, 
+              userData: session?.userData 
+            });
+            
+            // Track user connections
+            if (!userConnections.has(userId)) {
+              userConnections.set(userId, []);
+            }
+            userConnections.get(userId)?.push(clientId);
+            
+            ws.send(JSON.stringify({ 
+              type: 'auth_success', 
+              userId,
+              message: 'Real-time connection established' 
+            }));
+            
+            // Broadcast user online status
+            broadcastToAll({
+              type: 'user_online',
+              userId,
+              username: session?.userData?.username
+            });
+          } else {
+            ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid token' }));
+          }
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      const client = connectedClients.get(clientId);
+      if (client) {
+        // Remove from user connections
+        const connections = userConnections.get(client.userId);
+        if (connections) {
+          const index = connections.indexOf(clientId);
+          if (index > -1) connections.splice(index, 1);
+          if (connections.length === 0) {
+            userConnections.delete(client.userId);
+            // Broadcast user offline status
+            broadcastToAll({
+              type: 'user_offline',
+              userId: client.userId,
+              username: client.userData?.username
+            });
+          }
+        }
+        connectedClients.delete(clientId);
+      }
+      console.log(`WebSocket client disconnected: ${clientId}`);
+    });
+  });
+
+  // Real-time broadcasting functions
+  function broadcastToAll(data: any) {
+    connectedClients.forEach(({ ws }) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+      }
+    });
+  }
+
+  function broadcastToUser(userId: string, data: any) {
+    const connections = userConnections.get(userId);
+    if (connections) {
+      connections.forEach(clientId => {
+        const client = connectedClients.get(clientId);
+        if (client && client.ws.readyState === WebSocket.OPEN) {
+          client.ws.send(JSON.stringify(data));
+        }
+      });
+    }
+  }
+
+  function broadcastToOthers(excludeUserId: string, data: any) {
+    connectedClients.forEach(({ ws, userId }) => {
+      if (userId !== excludeUserId && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+      }
+    });
+  }
 
   // Admin email patterns for validation
   const adminEmailPatterns = [
@@ -250,6 +358,18 @@ export function registerRoutes(app: Express): Server {
         idUsers: currentUser.idUsers
       });
 
+      // Broadcast new post to all connected clients in real-time
+      broadcastToAll({
+        type: 'new_post',
+        post: {
+          ...post,
+          username: currentUser.username,
+          userRole: currentUser.role
+        },
+        timestamp: new Date().toISOString(),
+        message: `${currentUser.username} membuat post baru: ${post.judul}`
+      });
+
       res.json({
         message: "Post berhasil dibuat",
         post
@@ -288,6 +408,18 @@ export function registerRoutes(app: Express): Server {
         judul: validatedData.judul,
         deskripsi: validatedData.deskripsi,
         imageUrl: validatedData.imageUrl
+      });
+
+      // Broadcast post update to all connected clients in real-time
+      broadcastToAll({
+        type: 'post_updated',
+        post: {
+          ...updatedPost,
+          username: currentUser.username,
+          userRole: currentUser.role
+        },
+        timestamp: new Date().toISOString(),
+        message: `${currentUser.username} memperbarui post: ${updatedPost.judul}`
       });
 
       res.json({
@@ -372,6 +504,16 @@ export function registerRoutes(app: Express): Server {
         try {
           const deleteResult = await storage.deletePost(postId);
           
+          // Broadcast post deletion to all connected clients in real-time
+          broadcastToAll({
+            type: 'post_deleted',
+            postId: postId,
+            deletedBy: currentUser.username,
+            isAdmin: true,
+            timestamp: new Date().toISOString(),
+            message: `Admin ${currentUser.username} menghapus post`
+          });
+          
           res.json({
             message: "Post berhasil dihapus oleh admin",
             success: true,
@@ -381,6 +523,18 @@ export function registerRoutes(app: Express): Server {
           });
         } catch (deleteError) {
           console.error("Admin delete error:", deleteError);
+          
+          // Broadcast simulated deletion
+          broadcastToAll({
+            type: 'post_deleted',
+            postId: postId,
+            deletedBy: currentUser.username,
+            isAdmin: true,
+            simulated: true,
+            timestamp: new Date().toISOString(),
+            message: `Admin ${currentUser.username} menghapus post`
+          });
+          
           res.json({
             message: "Post berhasil dihapus oleh admin",
             success: true,
@@ -408,6 +562,16 @@ export function registerRoutes(app: Express): Server {
       if (!deleted) {
         return res.status(500).json({ message: "Gagal menghapus post" });
       }
+
+      // Broadcast post deletion to all connected clients in real-time
+      broadcastToAll({
+        type: 'post_deleted',
+        postId: postId,
+        deletedBy: currentUser.username,
+        isAdmin: false,
+        timestamp: new Date().toISOString(),
+        message: `${currentUser.username} menghapus post mereka`
+      });
 
       res.json({ message: "Post berhasil dihapus" });
     } catch (error) {
@@ -440,6 +604,18 @@ export function registerRoutes(app: Express): Server {
       if (result.error) {
         return res.status(400).json({ message: result.error });
       }
+
+      // Broadcast like/dislike to all connected clients in real-time
+      broadcastToAll({
+        type: 'post_interaction',
+        postId: postId,
+        interactionType: type,
+        userId: currentUser.idUsers,
+        username: currentUser.username,
+        post: result.post,
+        timestamp: new Date().toISOString(),
+        message: `${currentUser.username} ${type === 'like' ? 'menyukai' : 'tidak menyukai'} post`
+      });
 
       res.json({
         message: result.message || `Post berhasil di-${type}`,

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { authApi, type User } from "./api";
+import { wsClient } from "./websocket";
 
 interface AuthContextType {
   user: User | null;
@@ -77,6 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...userData,
         token: result.token
       }));
+      
+      // Authenticate WebSocket connection for real-time features
+      if (result.token) {
+        wsClient.authenticate(result.token);
+      }
+      
       return userData;
     } catch (error) {
       console.error("Auth login error:", error);
@@ -110,6 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...newUser,
         token: result.token
       }));
+      
+      // Authenticate WebSocket connection for real-time features
+      if (result.token) {
+        wsClient.authenticate(result.token);
+      }
     } catch (error) {
       throw error;
     }
