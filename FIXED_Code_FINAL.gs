@@ -528,3 +528,69 @@ function getLikeData(e) {
 function getCommentData(e) {
   return getCredentials(e);
 }
+
+function handleUploadImage(e) {
+  try {
+    var uploadData = getUploadData(e);
+    var imageBase64 = uploadData.imageBase64;
+    var fileName = uploadData.fileName || "image_" + Date.now() + ".jpg";
+
+    if (!imageBase64) {
+      return { error: "Image data harus diisi" };
+    }
+
+    // Remove data URL prefix if present (data:image/jpeg;base64,)
+    var base64Data = imageBase64;
+    if (imageBase64.indexOf(',') !== -1) {
+      base64Data = imageBase64.split(',')[1];
+    }
+
+    // Convert base64 to blob
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), 'image/jpeg', fileName);
+
+    // Get the target folder
+    var folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    
+    // Create the file in Google Drive
+    var file = folder.createFile(blob);
+    
+    // Set file to be publicly viewable
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    // Generate public URL for direct image display
+    var fileId = file.getId();
+    var publicUrl = "https://lh3.googleusercontent.com/d/" + fileId + "=w1000";
+
+    Logger.log("Image uploaded successfully: " + publicUrl);
+
+    return {
+      message: "Gambar berhasil diupload",
+      imageUrl: publicUrl,
+      fileId: fileId,
+      fileName: fileName
+    };
+
+  } catch (error) {
+    Logger.log("Upload image error: " + error.toString());
+    return { error: "Error upload image: " + error.toString() };
+  }
+}
+
+function getUploadData(e) {
+  if (e.postData && e.postData.contents) {
+    try {
+      var data = JSON.parse(e.postData.contents);
+      return {
+        imageBase64: data.imageBase64 || "",
+        fileName: data.fileName || ""
+      };
+    } catch (error) {
+      Logger.log("Parse upload data error: " + error.toString());
+    }
+  }
+  
+  return {
+    imageBase64: e.parameter.imageBase64 || "",
+    fileName: e.parameter.fileName || ""
+  };
+}
