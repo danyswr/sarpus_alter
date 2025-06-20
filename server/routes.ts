@@ -642,16 +642,49 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "No image provided" });
       }
 
-      // Convert image to base64 for Google Apps Script
-      const imageBase64 = req.body.imageData;
-      const fileName = req.body.fileName || `profile_${currentUser.idUsers}_${Date.now()}.jpg`;
+      // Process image data for Google Apps Script
+      let imageBase64 = req.body.imageData;
+      const fileName = req.body.fileName || `image_${currentUser.idUsers}_${Date.now()}.jpg`;
 
-      // Call Google Apps Script uploadImage action
-      const result = await storage.makeRequest('uploadImage', {
-        imageData: imageBase64,
-        fileName: fileName,
-        userId: currentUser.idUsers
-      });
+      // Remove data URL prefix if present (data:image/jpeg;base64,)
+      if (imageBase64.includes(',')) {
+        imageBase64 = imageBase64.split(',')[1];
+      }
+
+      console.log("Processing image upload:", { fileName, dataLength: imageBase64.length });
+
+      // Try Google Apps Script upload first, then fallback to data URL
+      let result;
+      try {
+        result = await storage.makeRequest('uploadImage', {
+          imageBase64: imageBase64,
+          fileName: fileName,
+          userId: currentUser.idUsers
+        });
+        
+        // If Google Apps Script upload fails, use data URL as fallback
+        if (result.error) {
+          console.log("Google Drive upload failed, using data URL fallback");
+          const mimeType = fileName.toLowerCase().includes('.png') ? 'image/png' : 'image/jpeg';
+          const dataUrl = `data:${mimeType};base64,${imageBase64}`;
+          
+          result = {
+            message: "Image uploaded as data URL",
+            imageUrl: dataUrl,
+            fileName: fileName
+          };
+        }
+      } catch (uploadError) {
+        console.log("Upload error, using data URL fallback:", uploadError);
+        const mimeType = fileName.toLowerCase().includes('.png') ? 'image/png' : 'image/jpeg';
+        const dataUrl = `data:${mimeType};base64,${imageBase64}`;
+        
+        result = {
+          message: "Image uploaded as data URL",
+          imageUrl: dataUrl,
+          fileName: fileName
+        };
+      }
 
       if (result.error) {
         return res.status(400).json({ message: result.error });
