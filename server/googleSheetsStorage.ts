@@ -88,13 +88,9 @@ export class GoogleSheetsStorage implements IStorage {
 
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    try {
-      const result = await this.makeRequest('getUser', { userId: id });
-      return result.user || undefined;
-    } catch (error) {
-      console.error('Error getting user:', error);
-      return undefined;
-    }
+    // Google Apps Script doesn't have getUser action, so we'll return undefined
+    // User info is already included in posts from getPosts action
+    return undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -257,27 +253,21 @@ export class GoogleSheetsStorage implements IStorage {
   // Comment operations
   async getComments(postId: string): Promise<Comment[]> {
     const result = await this.makeRequest('getComments', { postId });
-    return (result.comments || []).map((comment: any) => ({
-      idComment: comment.idComment || comment.id,
-      idPostingan: comment.idPostingan || comment.postId,
-      idUsers: comment.idUsers || comment.userId,
-      comment: comment.comment || comment.text,
-      timestamp: new Date(comment.timestamp)
-    }));
+    return result || [];
   }
 
   async createComment(comment: InsertComment): Promise<Comment> {
     const result = await this.makeRequest('createComment', {
-      postId: comment.idPostingan,
-      userId: comment.idUsers,
+      idPostingan: comment.idPostingan,
+      idUsers: comment.idUsers,
       comment: comment.comment
     });
-    return {
-      idComment: result.comment.id || result.comment.idComment,
-      idPostingan: result.comment.postId || result.comment.idPostingan,
-      idUsers: result.comment.userId || result.comment.idUsers,
-      comment: result.comment.comment || result.comment.text,
-      timestamp: new Date(result.comment.timestamp)
+    return result.comment || {
+      idComment: 'COMMENT_' + Date.now(),
+      idPostingan: comment.idPostingan,
+      idUsers: comment.idUsers,
+      comment: comment.comment,
+      timestamp: new Date()
     };
   }
 

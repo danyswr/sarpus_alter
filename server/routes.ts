@@ -69,7 +69,9 @@ export function registerRoutes(app: Express): Server {
     const userId = validateSession(token);
     if (!userId) return null;
     
-    return await storage.getUser(userId);
+    // Since getUser is not available in Google Apps Script, 
+    // we'll return a minimal user object with the userId
+    return { idUsers: userId };
   }
 
   // Test connection
