@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { storage } from "./storage";
+import { storage } from "./googleSheetsStorage";
 import { 
   loginSchema,
   registerSchema,
@@ -69,7 +69,7 @@ export function registerRoutes(app: Express): Server {
     const userId = validateSession(token);
     if (!userId) return null;
     
-    return await storage.getUserByIdUsers(userId);
+    return await storage.getUser(userId);
   }
 
   // Test connection
@@ -85,43 +85,47 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Register endpoint
+  // Register endpoint - Direct Google Apps Script integration
   app.post("/api/register", async (req, res) => {
     try {
-      const validatedData = registerSchema.parse(req.body);
+      const { email, username, password, nim, jurusan, gender } = req.body;
       
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(validatedData.email);
-      if (existingUser) {
-        return res.status(400).json({ message: "Email sudah terdaftar" });
+      if (!email || !username || !password) {
+        return res.status(400).json({ message: "Email, username, dan password harus diisi" });
       }
 
-      // Hash password
-      const hashedPassword = await hashPassword(validatedData.password);
+      // Call Google Apps Script register directly
+      const result = await storage.makeRequest('register', { 
+        email, 
+        username, 
+        password,
+        nim: nim || '',
+        jurusan: jurusan || '',
+        gender: gender || 'male'
+      });
       
-      // Create user
-      const userId = generateUserId();
-      const user = await storage.createUser({
-        ...validatedData,
-        idUsers: userId,
-        password: hashedPassword,
-        role: validatedData.role || "user"
-      });
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
+      }
 
-      // Create session
-      const token = createSession(userId);
+      if (result.user) {
+        // Create session
+        const token = createSession(result.user.idUsers);
 
-      res.json({
-        message: "Registrasi berhasil",
-        user: {
-          idUsers: user.idUsers,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          redirect: "/dashboard"
-        },
-        token
-      });
+        res.json({
+          message: result.message || "Registrasi berhasil",
+          user: {
+            idUsers: result.user.idUsers,
+            username: result.user.username,
+            email: result.user.email,
+            role: result.user.role,
+            redirect: result.user.redirect || "/dashboard"
+          },
+          token
+        });
+      } else {
+        return res.status(400).json({ message: "Registrasi gagal" });
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Data tidak valid", errors: error.errors });
@@ -131,46 +135,36 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Login endpoint
+  // Login endpoint - Direct Google Apps Script integration
   app.post("/api/login", async (req, res) => {
     try {
       const { email, password } = loginSchema.parse(req.body);
       
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(400).json({ message: "Email atau password salah" });
+      // Call Google Apps Script login directly
+      const result = await storage.makeRequest('login', { email, password });
+      
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
       }
 
-      // For migrated users, use plain text comparison to match Google Sheets authentication
-      // For new users created via register, use bcrypt
-      let isValidPassword = false;
-      
-      if (user.password.startsWith('$2b$')) {
-        // Hashed password - use bcrypt
-        isValidPassword = await verifyPassword(password, user.password);
+      if (result.user) {
+        // Create session
+        const token = createSession(result.user.idUsers);
+
+        res.json({
+          message: result.message || "Login berhasil",
+          user: {
+            idUsers: result.user.idUsers,
+            username: result.user.username,
+            email: result.user.email,
+            role: result.user.role,
+            redirect: result.user.redirect || "/dashboard"
+          },
+          token
+        });
       } else {
-        // Plain text password - direct comparison for migration compatibility
-        isValidPassword = password === user.password;
+        return res.status(400).json({ message: "Login gagal" });
       }
-      
-      if (!isValidPassword) {
-        return res.status(400).json({ message: "Email atau password salah" });
-      }
-
-      // Create session
-      const token = createSession(user.idUsers);
-
-      res.json({
-        message: "Login berhasil",
-        user: {
-          idUsers: user.idUsers,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          redirect: "/dashboard"
-        },
-        token
-      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Data tidak valid", errors: error.errors });
@@ -304,7 +298,15 @@ export function registerRoutes(app: Express): Server {
       const { postId } = req.params;
       const { type } = likePostSchema.parse({ ...req.body, postId, userId: currentUser.idUsers });
 
-      const updatedPost = await storage.likePost(postId, currentUser.idUsers, type);
+      // Handle like/dislike interaction
+      const interaction = {
+        idPostingan: postId,
+        idUsers: currentUser.idUsers,
+        interactionType: type as 'like' | 'dislike'
+      };
+      
+      await storage.createOrUpdateInteraction(interaction);
+      const updatedPost = await storage.getPost(postId);
       if (!updatedPost) {
         return res.status(404).json({ message: "Post tidak ditemukan" });
       }
@@ -358,7 +360,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const userPosts = await storage.getPostsByUser(currentUser.idUsers);
+      const userPosts = await storage.getUserPosts(currentUser.idUsers);
 
       res.json({
         user: {
@@ -421,8 +423,8 @@ export function registerRoutes(app: Express): Server {
       const allPosts = await storage.getAllPosts();
       const totalUsers = 1; // Simple count for demo
       const totalPosts = allPosts.length;
-      const totalLikes = allPosts.reduce((sum, post) => sum + (post.likeCount || 0), 0);
-      const totalDislikes = allPosts.reduce((sum, post) => sum + (post.dislikeCount || 0), 0);
+      const totalLikes = allPosts.reduce((sum, post) => sum + (post.like || 0), 0);
+      const totalDislikes = allPosts.reduce((sum, post) => sum + (post.dislike || 0), 0);
 
       res.json({
         totalUsers,
@@ -441,7 +443,7 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/posts/:postId/comments", async (req, res) => {
     try {
       const { postId } = req.params;
-      const comments = await storage.getCommentsByPost(postId);
+      const comments = await storage.getComments(postId);
       res.json({ comments });
     } catch (error) {
       console.error("Get comments error:", error);
@@ -505,13 +507,13 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/users/:userId", async (req, res) => {
     try {
       const { userId } = req.params;
-      const user = await storage.getUserByIdUsers(userId);
+      const user = await storage.getUser(userId);
       
       if (!user) {
         return res.status(404).json({ message: "User tidak ditemukan" });
       }
 
-      const userPosts = await storage.getPostsByUser(userId);
+      const userPosts = await storage.getUserPosts(userId);
       
       res.json({
         user: {
@@ -584,6 +586,119 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Logout error:", error);
       res.status(500).json({ message: "Terjadi kesalahan saat logout" });
+    }
+  });
+
+  // Search endpoint
+  app.get("/api/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ message: "Query parameter diperlukan" });
+      }
+
+      const posts = await storage.searchPosts(q);
+      res.json({ posts });
+    } catch (error) {
+      console.error("Search error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat pencarian" });
+    }
+  });
+
+  // Notifications endpoint
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const notifications = await storage.getUserNotifications(currentUser.idUsers);
+      res.json({ notifications });
+    } catch (error) {
+      console.error("Get notifications error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat mengambil notifikasi" });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/notifications/:notificationId/read", async (req, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { notificationId } = req.params;
+      const success = await storage.markNotificationAsRead(notificationId);
+      
+      if (success) {
+        res.json({ message: "Notifikasi berhasil ditandai dibaca" });
+      } else {
+        res.status(404).json({ message: "Notifikasi tidak ditemukan" });
+      }
+    } catch (error) {
+      console.error("Mark notification read error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan" });
+    }
+  });
+
+  // Admin endpoints for user management
+  app.delete("/api/admin/users/:userId", async (req, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser || currentUser.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied - Admin only" });
+      }
+
+      const { userId } = req.params;
+      const success = await storage.deleteUser(userId);
+      
+      if (success) {
+        res.json({ message: "User berhasil dihapus" });
+      } else {
+        res.status(404).json({ message: "User tidak ditemukan" });
+      }
+    } catch (error) {
+      console.error("Delete user error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat menghapus user" });
+    }
+  });
+
+  app.delete("/api/admin/users/:userId/posts", async (req, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser || currentUser.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied - Admin only" });
+      }
+
+      const { userId } = req.params;
+      const success = await storage.deleteUserPosts(userId);
+      
+      if (success) {
+        res.json({ message: "Semua postingan user berhasil dihapus" });
+      } else {
+        res.status(404).json({ message: "User tidak ditemukan" });
+      }
+    } catch (error) {
+      console.error("Delete user posts error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat menghapus postingan" });
+    }
+  });
+
+  // Get all users for admin
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser || currentUser.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied - Admin only" });
+      }
+
+      const users = await storage.getAllUsers();
+      res.json({ users });
+    } catch (error) {
+      console.error("Get all users error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat mengambil data users" });
     }
   });
 
