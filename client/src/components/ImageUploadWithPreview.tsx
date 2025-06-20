@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 
@@ -20,6 +20,19 @@ export function ImageUploadWithPreview({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset preview when imageUrl is cleared from parent
+  useEffect(() => {
+    if (!imageUrl || imageUrl === "") {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [imageUrl]);
 
   const handleFileSelect = (file: File) => {
     if (file && file.type.startsWith('image/')) {
