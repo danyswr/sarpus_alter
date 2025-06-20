@@ -35,13 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check if user is logged in from localStorage
     const savedUser = localStorage.getItem("feedbacku_user");
-    const savedToken = localStorage.getItem("feedbacku_token");
-    if (savedUser && savedToken) {
+    if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (error) {
         localStorage.removeItem("feedbacku_user");
-        localStorage.removeItem("feedbacku_token");
       }
     }
     setIsLoading(false);
@@ -73,9 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("Setting user data:", userData);
       setUser(userData);
       localStorage.setItem("feedbacku_user", JSON.stringify(userData));
-      if (result.token) {
-        localStorage.setItem("feedbacku_token", result.token);
-      }
       return userData;
     } catch (error) {
       console.error("Auth login error:", error);
@@ -106,9 +101,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(newUser);
       localStorage.setItem("feedbacku_user", JSON.stringify(newUser));
-      if (result.token) {
-        localStorage.setItem("feedbacku_token", result.token);
-      }
     } catch (error) {
       throw error;
     }
@@ -117,7 +109,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem("feedbacku_user");
-    localStorage.removeItem("feedbacku_token");
   };
 
   return (
