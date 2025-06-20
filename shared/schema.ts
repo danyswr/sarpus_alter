@@ -27,6 +27,7 @@ export const posts = {
   timestamp: z.date().default(() => new Date()),
   like: z.number().default(0),
   dislike: z.number().default(0),
+  username: z.string().optional(),
 };
 
 export const comments = {

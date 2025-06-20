@@ -179,7 +179,8 @@ export class GoogleSheetsStorage implements IStorage {
         imageUrl: post.imageUrl || '',
         timestamp: new Date(post.timestamp),
         like: parseInt(post.likes || post.like || 0),
-        dislike: parseInt(post.dislikes || post.dislike || 0)
+        dislike: parseInt(post.dislikes || post.dislike || 0),
+        username: post.username || 'Unknown User'
       }));
     } catch (error) {
       console.error('Error getting all posts:', error);
