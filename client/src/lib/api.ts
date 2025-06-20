@@ -79,10 +79,17 @@ async function apiCall<T = any>(endpoint: string, options: RequestInit = {}): Pr
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      console.error(`API Error for ${endpoint}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
       throw new Error(errorData.message || `HTTP ${response.status}`);
     }
     
-    return await response.json();
+    const result = await response.json();
+    console.log(`API Success for ${endpoint}:`, result);
+    return result;
   } catch (error) {
     console.error(`API call failed for ${endpoint}:`, error);
     throw error;

@@ -141,7 +141,18 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Email atau password salah" });
       }
 
-      const isValidPassword = await verifyPassword(password, user.password);
+      // For migrated users, use plain text comparison to match Google Sheets authentication
+      // For new users created via register, use bcrypt
+      let isValidPassword = false;
+      
+      if (user.password.startsWith('$2b$')) {
+        // Hashed password - use bcrypt
+        isValidPassword = await verifyPassword(password, user.password);
+      } else {
+        // Plain text password - direct comparison for migration compatibility
+        isValidPassword = password === user.password;
+      }
+      
       if (!isValidPassword) {
         return res.status(400).json({ message: "Email atau password salah" });
       }

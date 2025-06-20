@@ -48,26 +48,28 @@ export class MemStorage implements IStorage {
     this.comments = new Map();
     this.userInteractions = new Map();
 
-    // Add default admin user
-    this.createUser({
+    // Initialize with test users that match the Google Sheets data
+    // Using plain text passwords for now to match Google Sheets authentication
+    this.users.set("ADMIN123", {
       idUsers: "ADMIN123",
       username: "Admin User",
       email: "admin@admin.admin",
-      password: "$2b$10$eZnHPHn5sIKgL.M.U7doAu7Opg3JDwlocnokfVWckvgmX7lN7dHvK", // hashed "admin123"
+      password: "admin123", // Plain text for testing
       nim: "ADM123456", 
       jurusan: "Teknik Informatika",
-      role: "admin"
+      role: "admin",
+      createdAt: new Date()
     });
 
-    // Add test user for testing
-    this.createUser({
+    this.users.set("TEST123", {
       idUsers: "TEST123",
       username: "Test User",
       email: "test3@gmail.com",
-      password: "$2b$10$b2MI/X5xLxOJCI6KQudau.d3nzyJGD7MltfGLxdqTGdVbhubXHDvW", // hashed "12312313"
+      password: "12312313", // Plain text to match Google Sheets
       nim: "TEST123456",
       jurusan: "Teknik Informatika", 
-      role: "user"
+      role: "user",
+      createdAt: new Date()
     });
   }
 
