@@ -70,7 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log("Setting user data:", userData);
       setUser(userData);
-      localStorage.setItem("feedbacku_user", JSON.stringify(userData));
+      
+      // Store user data and token separately
+      localStorage.setItem("feedbacku_user", JSON.stringify({
+        ...userData,
+        token: result.token
+      }));
       return userData;
     } catch (error) {
       console.error("Auth login error:", error);
@@ -100,7 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(newUser);
-      localStorage.setItem("feedbacku_user", JSON.stringify(newUser));
+      localStorage.setItem("feedbacku_user", JSON.stringify({
+        ...newUser,
+        token: result.token
+      }));
     } catch (error) {
       throw error;
     }

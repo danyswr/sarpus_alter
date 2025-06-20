@@ -3,7 +3,15 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
-import { insertUserSchema, insertPostSchema, insertCommentSchema } from "@shared/schema";
+import { 
+  loginSchema,
+  registerSchema,
+  createPostSchema,
+  likePostSchema,
+  uploadImageSchema,
+  updatePostSchema,
+  createCommentSchema
+} from "@shared/schema";
 
 // Generate unique IDs
 function generateUserId(): string {
@@ -26,43 +34,6 @@ async function hashPassword(password: string): Promise<string> {
 async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
   return bcrypt.compare(password, hashedPassword);
 }
-
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-
-const registerSchema = insertUserSchema.extend({
-  password: z.string().min(6),
-  role: z.string().optional(),
-});
-
-const createPostSchema = insertPostSchema.extend({
-  userId: z.string(),
-});
-
-const likePostSchema = z.object({
-  postId: z.string(),
-  type: z.enum(['like', 'dislike']),
-  userId: z.string(),
-});
-
-const uploadImageSchema = z.object({
-  imageData: z.string(),
-  filename: z.string(),
-});
-
-const updatePostSchema = z.object({
-  postId: z.string(),
-  judul: z.string().optional(),
-  deskripsi: z.string().optional(),
-  imageUrl: z.string().optional(),
-});
-
-const createCommentSchema = insertCommentSchema.extend({
-  postId: z.string(),
-  userId: z.string(),
-});
 
 export function registerRoutes(app: Express): Server {
   const server = createServer(app);
@@ -348,7 +319,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { imageData, filename } = uploadImageSchema.parse(req.body);
+      const { imageData, fileName } = uploadImageSchema.parse(req.body);
       
       // In a real app, you would save to cloud storage
       // For now, return a mock URL
@@ -439,8 +410,8 @@ export function registerRoutes(app: Express): Server {
       const allPosts = await storage.getAllPosts();
       const totalUsers = 1; // Simple count for demo
       const totalPosts = allPosts.length;
-      const totalLikes = allPosts.reduce((sum, post) => sum + (post.likes || 0), 0);
-      const totalDislikes = allPosts.reduce((sum, post) => sum + (post.dislikes || 0), 0);
+      const totalLikes = allPosts.reduce((sum, post) => sum + (post.likeCount || 0), 0);
+      const totalDislikes = allPosts.reduce((sum, post) => sum + (post.dislikeCount || 0), 0);
 
       res.json({
         totalUsers,
@@ -453,6 +424,142 @@ export function registerRoutes(app: Express): Server {
       console.error("Get admin stats error:", error);
       res.status(500).json({ message: "Terjadi kesalahan saat mengambil statistik" });
     }
+  });
+
+  // Comments endpoints
+  app.get("/api/posts/:postId/comments", async (req, res) => {
+    try {
+      const { postId } = req.params;
+      const comments = await storage.getCommentsByPost(postId);
+      res.json({ comments });
+    } catch (error) {
+      console.error("Get comments error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat mengambil komentar" });
+    }
+  });
+
+  app.post("/api/posts/:postId/comments", async (req, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { postId } = req.params;
+      const { comment } = createCommentSchema.parse(req.body);
+      
+      const commentId = generateCommentId();
+      const newComment = await storage.createComment({
+        idComment: commentId,
+        idPostingan: postId,
+        idUsers: currentUser.idUsers,
+        comment
+      });
+
+      res.json({
+        message: "Komentar berhasil dibuat",
+        comment: newComment
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data tidak valid", errors: error.errors });
+      }
+      console.error("Create comment error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat membuat komentar" });
+    }
+  });
+
+  app.delete("/api/comments/:commentId", async (req, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { commentId } = req.params;
+      const deleted = await storage.deleteComment(commentId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Komentar tidak ditemukan" });
+      }
+
+      res.json({ message: "Komentar berhasil dihapus" });
+    } catch (error) {
+      console.error("Delete comment error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat menghapus komentar" });
+    }
+  });
+
+  // User endpoints
+  app.get("/api/users/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUserByIdUsers(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User tidak ditemukan" });
+      }
+
+      const userPosts = await storage.getPostsByUser(userId);
+      
+      res.json({
+        user: {
+          idUsers: user.idUsers,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          nim: user.nim,
+          jurusan: user.jurusan,
+          bio: user.bio,
+          location: user.location,
+          website: user.website
+        },
+        posts: userPosts
+      });
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat mengambil data user" });
+    }
+  });
+
+  app.put("/api/users/:userId", async (req, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { userId } = req.params;
+      
+      // User can only update their own profile
+      if (currentUser.idUsers !== userId) {
+        return res.status(403).json({ message: "Tidak memiliki izin untuk mengubah profil ini" });
+      }
+
+      const updates = req.body;
+      const updatedUser = await storage.updateUser(userId, updates);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User tidak ditemukan" });
+      }
+
+      res.json({
+        message: "Profil berhasil diperbarui",
+        user: updatedUser
+      });
+    } catch (error) {
+      console.error("Update user error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan saat memperbarui profil" });
+    }
+  });
+
+  // Test endpoint
+  app.get("/api/test", async (req, res) => {
+    res.json({ 
+      message: "API is working", 
+      timestamp: new Date().toISOString(),
+      status: "connected"
+    });
   });
 
   // Logout

@@ -1,8 +1,16 @@
-import { users, posts, type User, type InsertUser, type Post, type InsertPost } from "@shared/schema";
+import { 
+  type User, 
+  type InsertUser, 
+  type Post, 
+  type InsertPost,
+  type Comment,
+  type InsertComment,
+  type UserInteraction,
+  type InsertUserInteraction
+} from "@shared/schema";
 
 export interface IStorage {
   // User methods
-  getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByIdUsers(idUsers: string): Promise<User | undefined>;
   createUser(user: InsertUser & { idUsers: string; role?: string }): Promise<User>;
@@ -16,19 +24,29 @@ export interface IStorage {
   updatePost(idPostingan: string, updates: Partial<Post>): Promise<Post | undefined>;
   deletePost(idPostingan: string): Promise<boolean>;
   likePost(idPostingan: string, idUsers: string, type: 'like' | 'dislike'): Promise<Post | undefined>;
+
+  // Comment methods
+  getCommentsByPost(idPostingan: string): Promise<Comment[]>;
+  createComment(comment: InsertComment & { idComment: string }): Promise<Comment>;
+  deleteComment(idComment: string): Promise<boolean>;
+
+  // User interaction methods
+  createUserInteraction(interaction: InsertUserInteraction): Promise<UserInteraction>;
+  getUserInteraction(idPostingan: string, idUsers: string): Promise<UserInteraction | undefined>;
+  updateUserInteraction(idPostingan: string, idUsers: string, type: 'like' | 'dislike'): Promise<UserInteraction>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private posts: Map<number, Post>;
-  private currentUserId: number;
-  private currentPostId: number;
+  private users: Map<string, User>;
+  private posts: Map<string, Post>;
+  private comments: Map<string, Comment>;
+  private userInteractions: Map<string, UserInteraction>;
 
   constructor() {
     this.users = new Map();
     this.posts = new Map();
-    this.currentUserId = 1;
-    this.currentPostId = 1;
+    this.comments = new Map();
+    this.userInteractions = new Map();
 
     // Add default admin user
     this.createUser({
@@ -53,27 +71,21 @@ export class MemStorage implements IStorage {
     });
   }
 
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
   async getUserByEmail(email: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(user => user.email === email);
   }
 
   async getUserByIdUsers(idUsers: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.idUsers === idUsers);
+    return this.users.get(idUsers);
   }
 
   async createUser(insertUser: InsertUser & { idUsers: string; role?: string }): Promise<User> {
-    const id = this.currentUserId++;
     const user: User = {
       ...insertUser,
-      id,
       role: insertUser.role || "user",
       createdAt: new Date(),
     };
-    this.users.set(id, user);
+    this.users.set(user.idUsers, user);
     return user;
   }
 
@@ -82,38 +94,34 @@ export class MemStorage implements IStorage {
     if (!user) return undefined;
 
     const updatedUser = { ...user, ...updates };
-    this.users.set(user.id, updatedUser);
+    this.users.set(idUsers, updatedUser);
     return updatedUser;
   }
 
   async getAllPosts(): Promise<Post[]> {
     return Array.from(this.posts.values()).sort((a, b) => 
-      new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   }
 
   async getPostsByUser(idUsers: string): Promise<Post[]> {
     return Array.from(this.posts.values())
       .filter(post => post.idUsers === idUsers)
-      .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   async getPost(idPostingan: string): Promise<Post | undefined> {
-    return Array.from(this.posts.values()).find(post => post.idPostingan === idPostingan);
+    return this.posts.get(idPostingan);
   }
 
   async createPost(insertPost: InsertPost & { idPostingan: string; idUsers: string }): Promise<Post> {
-    const id = this.currentPostId++;
     const post: Post = {
       ...insertPost,
-      id,
-      likes: 0,
-      dislikes: 0,
-      likedBy: [],
-      dislikedBy: [],
+      likeCount: 0,
+      dislikeCount: 0,
       timestamp: new Date(),
     };
-    this.posts.set(id, post);
+    this.posts.set(post.idPostingan, post);
     return post;
   }
 
@@ -122,70 +130,99 @@ export class MemStorage implements IStorage {
     if (!post) return undefined;
 
     const updatedPost = { ...post, ...updates };
-    this.posts.set(post.id, updatedPost);
+    this.posts.set(idPostingan, updatedPost);
     return updatedPost;
   }
 
   async deletePost(idPostingan: string): Promise<boolean> {
-    const post = await this.getPost(idPostingan);
-    if (!post) return false;
-
-    this.posts.delete(post.id);
-    return true;
+    return this.posts.delete(idPostingan);
   }
 
   async likePost(idPostingan: string, idUsers: string, type: 'like' | 'dislike'): Promise<Post | undefined> {
     const post = await this.getPost(idPostingan);
     if (!post) return undefined;
 
-    const likedBy = post.likedBy || [];
-    const dislikedBy = post.dislikedBy || [];
+    // Handle like/dislike logic through user interactions
+    const existingInteraction = await this.getUserInteraction(idPostingan, idUsers);
     
-    let newLikedBy = [...likedBy];
-    let newDislikedBy = [...dislikedBy];
-    let newLikes = post.likes || 0;
-    let newDislikes = post.dislikes || 0;
-
-    if (type === 'like') {
-      if (likedBy.includes(idUsers)) {
-        // Remove like
-        newLikedBy = likedBy.filter(id => id !== idUsers);
-        newLikes--;
+    if (existingInteraction) {
+      if (existingInteraction.interactionType === type) {
+        // Remove the interaction (toggle off)
+        this.userInteractions.delete(`${idPostingan}_${idUsers}`);
       } else {
-        // Add like and remove dislike if exists
-        newLikedBy.push(idUsers);
-        newLikes++;
-        if (dislikedBy.includes(idUsers)) {
-          newDislikedBy = dislikedBy.filter(id => id !== idUsers);
-          newDislikes--;
-        }
+        // Update the interaction type
+        await this.updateUserInteraction(idPostingan, idUsers, type);
       }
     } else {
-      if (dislikedBy.includes(idUsers)) {
-        // Remove dislike
-        newDislikedBy = dislikedBy.filter(id => id !== idUsers);
-        newDislikes--;
-      } else {
-        // Add dislike and remove like if exists
-        newDislikedBy.push(idUsers);
-        newDislikes++;
-        if (likedBy.includes(idUsers)) {
-          newLikedBy = likedBy.filter(id => id !== idUsers);
-          newLikes--;
-        }
-      }
+      // Create new interaction
+      await this.createUserInteraction({
+        idPostingan,
+        idUsers,
+        interactionType: type
+      });
     }
 
-    const updatedPost = {
-      ...post,
-      likes: newLikes,
-      dislikes: newDislikes,
-      likedBy: newLikedBy,
-      dislikedBy: newDislikedBy,
-    };
+    // Recalculate counts
+    const interactions = Array.from(this.userInteractions.values())
+      .filter(interaction => interaction.idPostingan === idPostingan);
+    
+    const likeCount = interactions.filter(i => i.interactionType === 'like').length;
+    const dislikeCount = interactions.filter(i => i.interactionType === 'dislike').length;
 
-    this.posts.set(post.id, updatedPost);
+    const updatedPost = { ...post, likeCount, dislikeCount };
+    this.posts.set(idPostingan, updatedPost);
     return updatedPost;
+  }
+
+  // Comment methods
+  async getCommentsByPost(idPostingan: string): Promise<Comment[]> {
+    return Array.from(this.comments.values())
+      .filter(comment => comment.idPostingan === idPostingan)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }
+
+  async createComment(insertComment: InsertComment & { idComment: string }): Promise<Comment> {
+    const comment: Comment = {
+      ...insertComment,
+      timestamp: new Date(),
+    };
+    this.comments.set(comment.idComment, comment);
+    return comment;
+  }
+
+  async deleteComment(idComment: string): Promise<boolean> {
+    return this.comments.delete(idComment);
+  }
+
+  // User interaction methods
+  async createUserInteraction(insertInteraction: InsertUserInteraction): Promise<UserInteraction> {
+    const interaction: UserInteraction = {
+      ...insertInteraction,
+      timestamp: new Date(),
+    };
+    const key = `${interaction.idPostingan}_${interaction.idUsers}`;
+    this.userInteractions.set(key, interaction);
+    return interaction;
+  }
+
+  async getUserInteraction(idPostingan: string, idUsers: string): Promise<UserInteraction | undefined> {
+    const key = `${idPostingan}_${idUsers}`;
+    return this.userInteractions.get(key);
+  }
+
+  async updateUserInteraction(idPostingan: string, idUsers: string, type: 'like' | 'dislike'): Promise<UserInteraction> {
+    const key = `${idPostingan}_${idUsers}`;
+    const existing = this.userInteractions.get(key);
+    
+    const updated: UserInteraction = {
+      idPostingan,
+      idUsers,
+      interactionType: type,
+      timestamp: existing?.timestamp || new Date(),
+    };
+    
+    this.userInteractions.set(key, updated);
+    return updated;
   }
 }
 
