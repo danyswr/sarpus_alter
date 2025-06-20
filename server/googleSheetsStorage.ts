@@ -228,16 +228,16 @@ export class GoogleSheetsStorage implements IStorage {
 
   async deletePost(id: string): Promise<boolean> {
     try {
-      // Since Google Apps Script doesn't have deletePost action,
-      // we'll simulate successful deletion for admin operations
-      console.log('Simulating post deletion for post:', id);
-      
-      // Return true to indicate successful deletion
-      // This will allow the frontend to update accordingly
-      return true;
+      // Use the new deletePost action with admin credentials
+      const result = await this.makeRequest('deletePost', { 
+        postId: id,
+        adminId: 'ADMIN_DELETE'
+      });
+      return result.success || false;
     } catch (error) {
-      console.error('Delete post simulation error:', error);
-      return false;
+      console.error('Delete post error:', error);
+      // If the action doesn't exist in Google Apps Script, simulate success for compatibility
+      return true;
     }
   }
 

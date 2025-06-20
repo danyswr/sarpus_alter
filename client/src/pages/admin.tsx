@@ -37,9 +37,19 @@ export default function Admin() {
 
   const deletePostMutation = useMutation({
     mutationFn: (postId: string) => api.posts.deletePost(postId, user!.idUsers),
-    onSuccess: () => {
+    onSuccess: (data, postId) => {
+      console.log('Delete success:', data);
+      // Force immediate cache update by removing the post from local state
+      queryClient.setQueryData(["/api/posts"], (oldPosts: Post[] | undefined) => {
+        if (!oldPosts) return [];
+        return oldPosts.filter(post => post.idPostingan !== postId);
+      });
+      // Also invalidate to refetch from server
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
+    onError: (error) => {
+      console.error('Delete error:', error);
+    }
   });
 
   if (authLoading || !user || !user.role || user.role.toLowerCase() !== 'admin') {

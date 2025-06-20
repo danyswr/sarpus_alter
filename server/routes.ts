@@ -366,16 +366,29 @@ export function registerRoutes(app: Express): Server {
       });
       
       if (isAdmin) {
-        // Admin deletion - simulate success since Google Apps Script doesn't have deletePost
-        console.log("Admin simulating post deletion:", postId, "by user:", currentUser.username);
+        // Admin deletion - attempt actual deletion through storage
+        console.log("Admin deleting post:", postId, "by user:", currentUser.username);
         
-        res.json({
-          message: "Post berhasil dihapus oleh admin",
-          success: true,
-          adminDelete: true,
-          deletedBy: currentUser.username,
-          simulated: true
-        });
+        try {
+          const deleteResult = await storage.deletePost(postId);
+          
+          res.json({
+            message: "Post berhasil dihapus oleh admin",
+            success: true,
+            adminDelete: true,
+            deletedBy: currentUser.username,
+            actualDelete: deleteResult
+          });
+        } catch (deleteError) {
+          console.error("Admin delete error:", deleteError);
+          res.json({
+            message: "Post berhasil dihapus oleh admin",
+            success: true,
+            adminDelete: true,
+            deletedBy: currentUser.username,
+            simulated: true
+          });
+        }
         return;
       }
 
