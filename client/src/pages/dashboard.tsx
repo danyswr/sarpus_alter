@@ -237,10 +237,12 @@ export default function Dashboard() {
   const typedPosts = posts as Post[];
   const trendingTopics = typedPosts.reduce(
     (topics: { [key: string]: number }, post: Post) => {
-      const words = post.deskripsi
+      const deskripsi = typeof post.deskripsi === 'string' ? post.deskripsi : String(post.deskripsi || '');
+      const judul = typeof post.judul === 'string' ? post.judul : String(post.judul || '');
+      const words = deskripsi
         .toLowerCase()
         .split(" ")
-        .concat(post.judul?.toLowerCase().split(" ") || []);
+        .concat(judul.toLowerCase().split(" ") || []);
       words.forEach((word) => {
         if (
           word.length > 4 &&

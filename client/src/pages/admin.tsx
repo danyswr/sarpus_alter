@@ -41,7 +41,7 @@ export default function Admin() {
   useEffect(() => {
     if (
       !authLoading &&
-      (!user || !user.role || user.role.toLowerCase() !== "admin")
+      (!user || !user.role || (typeof user.role === 'string' ? user.role.toLowerCase() : user.role) !== "admin")
     ) {
       setLocation("/dashboard");
     }
@@ -49,7 +49,7 @@ export default function Admin() {
 
   const { data: posts = [], isLoading } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
-    enabled: !!user && !!user.role && user.role.toLowerCase() === "admin",
+    enabled: !!user && !!user.role && (typeof user.role === 'string' ? user.role.toLowerCase() : user.role) === "admin",
   });
 
   const deletePostMutation = useMutation({
@@ -74,7 +74,7 @@ export default function Admin() {
     authLoading ||
     !user ||
     !user.role ||
-    user.role.toLowerCase() !== "admin"
+    (typeof user.role === 'string' ? user.role.toLowerCase() : user.role) !== "admin"
   ) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -102,18 +102,18 @@ export default function Admin() {
   const stats = {
     totalPosts: postsArray.length,
     totalLikes: postsArray.reduce(
-      (sum: number, post: Post) => sum + (post.likes || 0),
+      (sum: number, post: Post) => sum + (post.like || post.likes || 0),
       0,
     ),
     totalDislikes: postsArray.reduce(
-      (sum: number, post: Post) => sum + (post.dislikes || 0),
+      (sum: number, post: Post) => sum + (post.dislike || post.dislikes || 0),
       0,
     ),
     avgLikesPerPost:
       postsArray.length > 0
         ? Math.round(
             postsArray.reduce(
-              (sum: number, post: Post) => sum + (post.likes || 0),
+              (sum: number, post: Post) => sum + (post.like || post.likes || 0),
               0,
             ) / postsArray.length,
           )

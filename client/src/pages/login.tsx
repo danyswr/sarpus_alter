@@ -60,7 +60,7 @@ export default function Login() {
       const userData = await login(data.email, data.password);
       console.log("Login successful, checking role for redirect");
 
-      if (userData.role && userData.role.toLowerCase() === "admin") {
+      if (userData.role && (typeof userData.role === 'string' ? userData.role.toLowerCase() : userData.role) === "admin") {
         console.log("Redirecting admin to admin panel");
         window.location.href = "/admin";
       } else {
@@ -298,7 +298,7 @@ export default function Login() {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .stroke-text {
           -webkit-text-stroke: 4px black;
           text-stroke: 4px black;

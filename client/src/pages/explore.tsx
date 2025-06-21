@@ -49,7 +49,7 @@ export default function Explore() {
     }: {
       postId: string;
       type: "like" | "dislike";
-    }) => api.posts.likePost(postId, type, user?.idUsers || "anonymous"),
+    }) => api.posts.likePost(postId, type),
     onMutate: async ({ postId, type }) => {
       await queryClient.cancelQueries({ queryKey: ["google-posts-explore"] });
 
@@ -63,8 +63,8 @@ export default function Explore() {
           if (post.idPostingan === postId) {
             return {
               ...post,
-              likes: type === "like" ? post.likes + 1 : post.likes,
-              dislikes: type === "dislike" ? post.dislikes + 1 : post.dislikes,
+              like: type === "like" ? (post.like || 0) + 1 : (post.like || 0),
+              dislike: type === "dislike" ? (post.dislike || 0) + 1 : (post.dislike || 0),
             };
           }
           return post;
@@ -117,19 +117,25 @@ export default function Explore() {
   const typedPosts = posts as Post[];
 
   const filteredPosts = typedPosts.filter(
-    (post: Post) =>
-      post.judul.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.deskripsi.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.username?.toLowerCase().includes(searchQuery.toLowerCase()),
+    (post: Post) => {
+      const judul = typeof post.judul === 'string' ? post.judul : String(post.judul || '');
+      const deskripsi = typeof post.deskripsi === 'string' ? post.deskripsi : String(post.deskripsi || '');
+      const username = typeof post.username === 'string' ? post.username : String(post.username || '');
+      return judul.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        deskripsi.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        username.toLowerCase().includes(searchQuery.toLowerCase());
+    }
   );
 
   // Get trending topics from posts
   const trendingTopics = typedPosts.reduce(
     (topics: { [key: string]: number }, post: Post) => {
-      const words = post.judul
+      const judul = typeof post.judul === 'string' ? post.judul : String(post.judul || '');
+      const deskripsi = typeof post.deskripsi === 'string' ? post.deskripsi : String(post.deskripsi || '');
+      const words = judul
         .toLowerCase()
         .split(" ")
-        .concat(post.deskripsi.toLowerCase().split(" "));
+        .concat(deskripsi.toLowerCase().split(" "));
       words.forEach((word) => {
         if (
           word.length > 4 &&

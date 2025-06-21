@@ -60,15 +60,18 @@ export type UploadImageData = z.infer<typeof uploadImageSchema>;
 
 // Post type
 export interface Post {
-  id: string;
+  id?: string;
   idPostingan: string;
   judul: string;
-  deskripsi: string;
+  deskripsi: string | number;
   imageUrl?: string;
   idUsers: string;
   username?: string;
-  timestamp: string;
+  timestamp: string | Date;
+  like?: number;
+  dislike?: number;
   likes?: number;
+  dislikes?: number;
   comments?: Comment[];
 }
 
