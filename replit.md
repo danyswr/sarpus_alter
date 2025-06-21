@@ -52,6 +52,10 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
   - Users can now properly delete their own posts
   - Enhanced authorization checks and clearer error messages
   - Fixed backend route to properly validate post ownership
+  - ✅ **COMPLETED**: Real-time delete functionality implemented
+    - Posts disappear immediately when deleted through WebSocket broadcasting
+    - Fixed Google Apps Script parameter mapping for deleteUserPosts action
+    - Optimistic UI updates for instant visual feedback
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages

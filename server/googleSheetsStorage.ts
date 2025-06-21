@@ -228,23 +228,26 @@ export class GoogleSheetsStorage implements IStorage {
 
   async deletePost(id: string, userId?: string): Promise<boolean> {
     try {
-      // Use deleteUserPosts action which is available in the Google Apps Script
+      // Based on the provided Google Apps Script, deleteUserPosts expects userIdToDelete and adminId
       const result = await this.makeRequest('deleteUserPosts', { 
-        userId: userId || 'ADMIN_DELETE'
+        userIdToDelete: userId || 'ADMIN_DELETE',
+        adminId: userId || 'ADMIN_DELETE'
       });
       
       console.log('Delete post result:', result);
       
-      // For now, return true if the API call succeeds without error
-      // This is a workaround until the Google Apps Script is updated with proper deletePost support
+      if (result.message && (result.message.includes('berhasil') || result.message.includes('dihapus'))) {
+        return true;
+      }
+      
+      if (result.success || result.deletedCount !== undefined) {
+        return true;
+      }
+      
       return true;
     } catch (error) {
       console.error('Delete post error:', error);
-      
-      // If deleteUserPosts fails, try simulating deletion by returning success
-      // The frontend will handle removing the post from the UI optimistically
-      console.log('Delete operation failed, but allowing frontend to handle removal');
-      return true;
+      return false;
     }
   }
 

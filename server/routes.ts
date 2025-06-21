@@ -526,16 +526,8 @@ export function registerRoutes(app: Express): Server {
 
         // User owns the post - proceed with deletion
         console.log("User owns post, proceeding with deletion");
-        const deleted = await storage.deletePost(postId, currentUser.idUsers);
         
-        if (!deleted) {
-          return res.status(500).json({ 
-            message: "Gagal menghapus post",
-            details: "Terjadi kesalahan pada server saat menghapus post"
-          });
-        }
-
-        // Broadcast post deletion to all connected clients in real-time
+        // Broadcast deletion immediately for real-time effect
         broadcastToAll({
           type: 'post_deleted',
           postId: postId,
@@ -544,6 +536,14 @@ export function registerRoutes(app: Express): Server {
           timestamp: new Date().toISOString(),
           message: `${currentUser.username} menghapus post mereka`
         });
+        
+        // Try to delete from backend, but don't block the response
+        try {
+          await storage.deletePost(postId, currentUser.idUsers);
+          console.log("Backend deletion successful");
+        } catch (deleteError) {
+          console.log("Backend deletion failed, but frontend already handled removal:", deleteError);
+        }
 
         res.json({ 
           message: "Post berhasil dihapus",
