@@ -9,7 +9,6 @@ import { ImageUploadWithPreview } from "@/components/ImageUploadWithPreview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Post } from "@/lib/api";
@@ -18,12 +17,19 @@ import {
   Menu,
   RefreshCw,
   Trophy,
-  Sparkles,
-  TrendingUp,
+  ImageIcon,
+  Smile,
+  Calendar,
+  MapPin,
+  X,
+  Send,
   MessageSquare,
+  TrendingUp,
+  Hash,
+  FlameIcon as Fire,
+  Users,
   Heart,
-  Zap,
-  Target,
+  BarChart3,
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -31,12 +37,10 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [tweetText, setTweetText] = useState("");
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
 
-  const [newPost, setNewPost] = useState({
-    judul: "",
-    deskripsi: "",
-    imageUrl: "",
-  });
   const queryClient = useQueryClient();
 
   // Animation on mount
@@ -64,9 +68,6 @@ export default function Dashboard() {
       const filteredPosts = fetchedPosts.filter(
         (post: any) => !deletedPosts.includes(post.idPostingan),
       );
-      console.log(
-        `Filtered out ${fetchedPosts.length - filteredPosts.length} deleted posts`,
-      );
       return filteredPosts;
     },
     enabled: !!user,
@@ -92,7 +93,7 @@ export default function Dashboard() {
         idUsers: user!.idUsers,
         username: user!.username,
         timestamp: new Date(),
-        judul: newPostData.judul,
+        judul: "",
         deskripsi: newPostData.deskripsi,
         like: 0,
         dislike: 0,
@@ -111,7 +112,9 @@ export default function Dashboard() {
       }
     },
     onSuccess: () => {
-      setNewPost({ judul: "", deskripsi: "", imageUrl: "" });
+      setTweetText("");
+      setImageUrl("");
+      setShowImageUpload(false);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["google-posts"] });
@@ -142,7 +145,6 @@ export default function Dashboard() {
       if (!deletedPosts.includes(postId)) {
         deletedPosts.push(postId);
         localStorage.setItem("deletedPosts", JSON.stringify(deletedPosts));
-        console.log(`Pre-emptively added ${postId} to deleted posts list`);
       }
 
       const previousPosts = queryClient.getQueryData(["google-posts"]);
@@ -156,12 +158,7 @@ export default function Dashboard() {
     onSuccess: (data, postId) => {
       queryClient.setQueryData(["google-posts"], (old: any) => {
         if (!old) return old;
-        const filtered = old.filter((post: any) => post.idPostingan !== postId);
-        console.log(
-          `Post ${postId} permanently removed. Remaining posts:`,
-          filtered.length,
-        );
-        return filtered;
+        return old.filter((post: any) => post.idPostingan !== postId);
       });
 
       const deletedPosts = JSON.parse(
@@ -170,7 +167,6 @@ export default function Dashboard() {
       if (!deletedPosts.includes(postId)) {
         deletedPosts.push(postId);
         localStorage.setItem("deletedPosts", JSON.stringify(deletedPosts));
-        console.log(`Added ${postId} to deleted posts list:`, deletedPosts);
       }
     },
     onError: (err, postId, context) => {
@@ -183,14 +179,6 @@ export default function Dashboard() {
       if (context?.previousPosts) {
         queryClient.setQueryData(["google-posts"], context.previousPosts);
       }
-      console.error("Delete failed:", err);
-    },
-    onSettled: (data, error, postId) => {
-      if (error) {
-        queryClient.invalidateQueries({ queryKey: ["google-posts"] });
-      } else {
-        console.log(`Post ${postId} deletion completed successfully`);
-      }
     },
   });
 
@@ -199,12 +187,8 @@ export default function Dashboard() {
       return api.uploadImage(file);
     },
     onSuccess: (data: any) => {
-      console.log("Image upload success response:", data);
       if (data.imageUrl && data.imageUrl.trim() !== "") {
-        console.log("Setting image URL:", data.imageUrl);
-        setNewPost((prev) => ({ ...prev, imageUrl: data.imageUrl }));
-      } else {
-        console.warn("No image URL received from upload");
+        setImageUrl(data.imageUrl);
       }
     },
     onError: (error) => {
@@ -212,11 +196,13 @@ export default function Dashboard() {
     },
   });
 
-  const handleCreatePost = () => {
-    if (!user || !newPost.deskripsi.trim()) return;
+  const handleTweet = () => {
+    if (!user || !tweetText.trim()) return;
 
     createPostMutation.mutate({
-      ...newPost,
+      judul: "",
+      deskripsi: tweetText,
+      imageUrl: imageUrl,
       userId: user.idUsers,
     });
   };
@@ -229,7 +215,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="bg-cyan-400 p-8 rounded-3xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 animate-bounce">
+          <div className="bg-yellow-400 p-8 rounded-3xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 animate-bounce">
             <Trophy className="text-black text-8xl mx-auto" />
           </div>
           <h1 className="text-6xl font-black text-black mb-4">SARPUS</h1>
@@ -247,27 +233,57 @@ export default function Dashboard() {
     );
   }
 
-  const quickStats = [
-    {
-      number: posts.length,
-      label: "Total Posts",
-      icon: MessageSquare,
-      color: "bg-yellow-400",
+  // Calculate trending topics from posts
+  const typedPosts = posts as Post[];
+  const trendingTopics = typedPosts.reduce(
+    (topics: { [key: string]: number }, post: Post) => {
+      const words = post.deskripsi
+        .toLowerCase()
+        .split(" ")
+        .concat(post.judul?.toLowerCase().split(" ") || []);
+      words.forEach((word) => {
+        if (
+          word.length > 4 &&
+          ![
+            "yang",
+            "dengan",
+            "untuk",
+            "adalah",
+            "akan",
+            "dari",
+            "pada",
+            "dalam",
+            "tidak",
+            "juga",
+            "sudah",
+          ].includes(word)
+        ) {
+          topics[word] = (topics[word] || 0) + 1;
+        }
+      });
+      return topics;
     },
-    {
-      number: posts.reduce((acc, post) => acc + (post.like || 0), 0),
-      label: "Total Likes",
-      icon: Heart,
-      color: "bg-pink-400",
-    },
-    {
-      number: "98%",
-      label: "Engagement",
-      icon: TrendingUp,
-      color: "bg-green-400",
-    },
-    { number: "24/7", label: "Active", icon: Zap, color: "bg-purple-400" },
-  ];
+    {},
+  );
+
+  const topTrending = Object.entries(trendingTopics)
+    .sort(([, a], [, b]) => (b as number) - (a as number))
+    .slice(0, 5)
+    .map(([topic, count]) => ({ topic, count }));
+
+  // Calculate stats
+  const stats = {
+    totalPosts: typedPosts.length,
+    totalLikes: typedPosts.reduce(
+      (sum: number, post: Post) => sum + (post.likes || 0),
+      0,
+    ),
+    todayPosts: typedPosts.filter(
+      (post: Post) =>
+        new Date(post.timestamp).toDateString() === new Date().toDateString(),
+    ).length,
+    activeUsers: new Set(typedPosts.map((post: Post) => post.username)).size,
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 relative">
@@ -276,7 +292,7 @@ export default function Dashboard() {
         isOpen={sidebarOpen}
         onCreatePost={() => {
           const textarea = document.querySelector(
-            ".mobile-post-input",
+            ".tweet-input",
           ) as HTMLTextAreaElement;
           textarea?.focus();
           setSidebarOpen(false);
@@ -286,8 +302,8 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="lg:ml-80 transition-all duration-300">
-        {/* Mobile Header */}
-        <div className="lg:hidden bg-cyan-400 border-b-4 border-black px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+        {/* Mobile Header - Changed to Yellow */}
+        <div className="lg:hidden bg-yellow-400 border-b-4 border-black px-6 py-4 flex items-center justify-between sticky top-0 z-30">
           <Button
             variant="ghost"
             onClick={() => setSidebarOpen(true)}
@@ -301,341 +317,423 @@ export default function Dashboard() {
               <Trophy className="text-black text-lg" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-black">SARPUS</h1>
-              <p className="text-xs text-black font-bold -mt-1">DASHBOARD</p>
+              <h1 className="text-xl font-black text-black">BERANDA</h1>
+              <p className="text-xs text-black font-bold -mt-1">
+                Timeline SARPUS
+              </p>
             </div>
           </div>
 
           <Button
             onClick={() => {
               const textarea = document.querySelector(
-                ".mobile-post-input",
+                ".tweet-input",
               ) as HTMLTextAreaElement;
               textarea?.focus();
             }}
-            className="bg-yellow-400 text-black border-4 border-black rounded-2xl p-3 hover:bg-yellow-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+            className="bg-white text-black border-4 border-black rounded-2xl p-3 hover:bg-gray-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
           >
             <Plus className="w-5 h-5" />
           </Button>
         </div>
 
-        {/* Dashboard Content */}
-        <div className="max-w-4xl mx-auto py-8 px-6">
-          {/* Welcome Section */}
-          <div
-            className={`mb-8 transform transition-all duration-1000 ${
-              isVisible
-                ? "translate-y-0 opacity-100"
-                : "translate-y-10 opacity-0"
-            }`}
-          >
-            <div className="bg-cyan-400 p-8 rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8">
-              <div className="flex items-center space-x-4 mb-6">
-                <div className="bg-white p-4 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                  <Trophy className="text-black text-3xl" />
-                </div>
-                <div>
-                  <h1 className="text-4xl font-black text-black mb-2">
-                    WELCOME BACK!
-                  </h1>
-                  <p className="text-xl font-bold text-black">
-                    Halo,{" "}
-                    <span className="bg-yellow-400 px-3 py-1 rounded-xl border-2 border-black">
-                      {user.username || user.email}
-                    </span>
-                  </p>
-                </div>
-              </div>
+        {/* 3-Column Layout */}
+        <div className="flex max-w-7xl mx-auto">
+          {/* Main Timeline - Center Column */}
+          <div className="flex-1 max-w-2xl mx-auto lg:mx-0">
+            {/* Desktop Header - Changed to Yellow */}
+            <div className="hidden lg:block bg-yellow-400 border-b-4 border-black sticky top-0 z-20">
+              <div className="px-6 py-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-white p-3 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <Trophy className="text-black text-2xl" />
+                    </div>
+                    <div>
+                      <h1 className="text-3xl font-black text-black uppercase">
+                        BERANDA
+                      </h1>
+                      <p className="text-lg font-bold text-black">
+                        Timeline SARPUS
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="inline-flex items-center space-x-3 bg-white text-black px-6 py-3 rounded-full border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                <Sparkles className="w-5 h-5" />
-                <span className="font-black text-lg uppercase tracking-wide">
-                  DASHBOARD MAHASISWA
-                </span>
+                  <Button
+                    onClick={() => refetchPosts()}
+                    className="bg-white text-black hover:bg-gray-100 border-4 border-black rounded-2xl p-3 font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-300"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
             </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {quickStats.map((stat, index) => (
-                <div
-                  key={index}
-                  className={`${stat.color} p-6 rounded-2xl border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:scale-105 cursor-pointer group`}
-                >
-                  <stat.icon className="w-8 h-8 mx-auto mb-3 text-black group-hover:scale-110 transition-transform duration-300" />
-                  <div className="text-3xl font-black text-black mb-2 text-center">
-                    {stat.number}
-                  </div>
-                  <div className="text-sm text-black font-bold uppercase text-center">
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+            {/* Twitter-style Compose Tweet */}
+            <div
+              className={`transform transition-all duration-1000 ${
+                isVisible
+                  ? "translate-y-0 opacity-100"
+                  : "translate-y-10 opacity-0"
+              }`}
+            >
+              <Card className="border-4 border-black shadow-none bg-white rounded-none border-t-0">
+                <CardContent className="p-6">
+                  <div className="flex space-x-4">
+                    {/* User Avatar */}
+                    <div className="w-12 h-12 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center flex-shrink-0 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <span className="text-white font-black text-lg">
+                        {user.username
+                          ? user.username.charAt(0).toUpperCase()
+                          : user.email
+                            ? user.email.charAt(0).toUpperCase()
+                            : "U"}
+                      </span>
+                    </div>
 
-          {/* Create Post Section */}
-          <div
-            className={`mb-8 transform transition-all duration-1000 delay-300 ${
-              isVisible
-                ? "translate-y-0 opacity-100"
-                : "translate-y-10 opacity-0"
-            }`}
-          >
-            <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white rounded-2xl">
-              <CardHeader className="bg-yellow-400 border-b-4 border-black rounded-t-2xl">
-                <CardTitle className="flex items-center space-x-3 text-2xl font-black text-black uppercase">
-                  <Target className="w-6 h-6" />
-                  <span>Buat Postingan Baru</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8">
-                <div className="flex space-x-6">
-                  <div className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center flex-shrink-0 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <span className="text-white font-black text-2xl">
-                      {user.username
-                        ? user.username.charAt(0).toUpperCase()
-                        : user.email
-                          ? user.email.charAt(0).toUpperCase()
-                          : "U"}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="space-y-6">
-                      {/* Judul Input */}
-                      <div>
-                        <label className="block text-lg font-black text-black mb-3 uppercase tracking-wide">
-                          Judul Keluh Kesah
-                        </label>
-                        <Input
-                          value={newPost.judul}
-                          onChange={(e) =>
-                            setNewPost((prev) => ({
-                              ...prev,
-                              judul: e.target.value,
-                            }))
-                          }
-                          placeholder="Berikan judul yang menarik..."
-                          className="text-lg font-bold border-4 border-black rounded-xl focus:border-cyan-400 px-4 py-3"
-                        />
-                      </div>
+                    {/* Tweet Compose Area */}
+                    <div className="flex-1">
+                      <Textarea
+                        value={tweetText}
+                        onChange={(e) => setTweetText(e.target.value)}
+                        placeholder="Apa yang terjadi di kampus?"
+                        className="text-xl font-bold border-0 resize-none min-h-[80px] p-0 focus:ring-0 focus:border-0 tweet-input placeholder:text-gray-500 bg-transparent"
+                        rows={3}
+                      />
 
-                      {/* Deskripsi Textarea */}
-                      <div>
-                        <label className="block text-lg font-black text-black mb-3 uppercase tracking-wide">
-                          Ceritakan Keluh Kesahmu
-                        </label>
-                        <Textarea
-                          value={newPost.deskripsi}
-                          onChange={(e) =>
-                            setNewPost((prev) => ({
-                              ...prev,
-                              deskripsi: e.target.value,
-                            }))
-                          }
-                          placeholder="Apa yang terjadi di kampus? Ceritakan pengalamanmu..."
-                          className="text-lg font-bold border-4 border-black rounded-xl focus:border-cyan-400 px-4 py-3 resize-none min-h-[120px] mobile-post-input"
-                          rows={4}
-                        />
-                        <div className="flex justify-between items-center mt-3">
-                          <span className="text-sm font-bold text-gray-600">
-                            {newPost.deskripsi.length}/280 karakter
-                          </span>
-                          {newPost.deskripsi.length > 280 && (
-                            <Badge className="bg-red-400 text-black border-2 border-black font-black">
-                              Terlalu Panjang!
-                            </Badge>
-                          )}
+                      {/* Image Preview */}
+                      {imageUrl && (
+                        <div className="mt-4 relative">
+                          <img
+                            src={imageUrl || "/placeholder.svg"}
+                            alt="Upload preview"
+                            className="w-full max-h-64 object-cover rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                          />
+                          <Button
+                            onClick={() => setImageUrl("")}
+                            className="absolute top-2 right-2 w-8 h-8 p-0 bg-black text-white hover:bg-gray-800 rounded-full border-2 border-white"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
                         </div>
-                      </div>
+                      )}
 
                       {/* Image Upload Component */}
-                      <div>
-                        <label className="block text-lg font-black text-black mb-3 uppercase tracking-wide">
-                          Tambah Gambar (Opsional)
-                        </label>
-                        <ImageUploadWithPreview
-                          onImageUpload={handleImageUpload}
-                          onImageRemove={() =>
-                            setNewPost((prev) => ({ ...prev, imageUrl: "" }))
-                          }
-                          imageUrl={newPost.imageUrl}
-                          isUploading={uploadImageMutation.isPending}
-                          disabled={createPostMutation.isPending}
-                        />
-                      </div>
-                    </div>
+                      {showImageUpload && (
+                        <div className="mt-4">
+                          <ImageUploadWithPreview
+                            onImageUpload={handleImageUpload}
+                            onImageRemove={() => setImageUrl("")}
+                            imageUrl={imageUrl}
+                            isUploading={uploadImageMutation.isPending}
+                            disabled={createPostMutation.isPending}
+                          />
+                        </div>
+                      )}
 
-                    {/* Actions Bar */}
-                    <div className="flex items-center justify-between pt-8 border-t-4 border-black mt-8">
-                      <div className="flex items-center space-x-4">
+                      {/* Character Count and Actions */}
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-200 mt-4">
+                        <div className="flex items-center space-x-4">
+                          {/* Character Count */}
+                          <div className="flex items-center space-x-3">
+                            <span className="text-sm font-bold text-gray-600">
+                              {tweetText.length}/280
+                            </span>
+                            {tweetText.length > 280 && (
+                              <Badge className="bg-red-400 text-black border-2 border-black font-black rounded-full text-xs">
+                                Terlalu Panjang!
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              onClick={() =>
+                                setShowImageUpload(!showImageUpload)
+                              }
+                              variant="ghost"
+                              className="text-cyan-500 hover:bg-cyan-50 p-2 rounded-full w-10 h-10"
+                            >
+                              <ImageIcon className="w-5 h-5" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              className="text-cyan-500 hover:bg-cyan-50 p-2 rounded-full w-10 h-10"
+                            >
+                              <Smile className="w-5 h-5" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              className="text-cyan-500 hover:bg-cyan-50 p-2 rounded-full w-10 h-10"
+                            >
+                              <MapPin className="w-5 h-5" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              className="text-cyan-500 hover:bg-cyan-50 p-2 rounded-full w-10 h-10"
+                            >
+                              <Calendar className="w-5 h-5" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Tweet Button */}
                         <Button
-                          variant="outline"
-                          onClick={() => refetchPosts()}
-                          className="border-4 border-black text-black bg-white hover:bg-gray-100 rounded-2xl px-6 py-3 font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-300"
+                          className="bg-yellow-400 text-black hover:bg-yellow-500 border-4 border-black rounded-full px-8 py-2 font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:scale-105 flex items-center space-x-2 group"
+                          onClick={handleTweet}
+                          disabled={
+                            createPostMutation.isPending ||
+                            !tweetText.trim() ||
+                            tweetText.length > 280
+                          }
                         >
-                          <RefreshCw className="w-5 h-5 mr-2" />
-                          Refresh Feed
+                          {createPostMutation.isPending ? (
+                            <>
+                              <div className="w-4 h-4 border-4 border-black border-t-transparent rounded-full animate-spin" />
+                              <span>POSTING...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>POST</span>
+                              <Send className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                            </>
+                          )}
                         </Button>
                       </div>
-
-                      <Button
-                        className="bg-yellow-400 text-black hover:bg-yellow-500 border-4 border-black rounded-2xl px-8 py-3 font-black text-lg shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:scale-105 flex items-center space-x-3 group"
-                        onClick={handleCreatePost}
-                        disabled={
-                          createPostMutation.isPending ||
-                          !newPost.deskripsi.trim() ||
-                          newPost.deskripsi.length > 280
-                        }
-                      >
-                        {createPostMutation.isPending ? (
-                          <>
-                            <div className="w-5 h-5 border-4 border-black border-t-transparent rounded-full animate-spin" />
-                            <span>POSTING...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                            <span>POSTING SEKARANG</span>
-                          </>
-                        )}
-                      </Button>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Twitter-style Feed */}
+            <div
+              className={`transform transition-all duration-1000 delay-300 ${
+                isVisible
+                  ? "translate-y-0 opacity-100"
+                  : "translate-y-10 opacity-0"
+              }`}
+            >
+              {isLoading ? (
+                <div className="text-center py-16 bg-white border-4 border-black border-t-0">
+                  <div className="bg-yellow-400 p-8 rounded-3xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 animate-bounce inline-block">
+                    <MessageSquare className="text-black text-6xl" />
+                  </div>
+                  <h3 className="text-3xl font-black text-black mb-4 uppercase">
+                    Loading Timeline...
+                  </h3>
+                  <p className="text-lg font-bold text-gray-600">
+                    Mengambil postingan terbaru
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+              ) : !posts || posts.length === 0 ? (
+                <Card className="border-4 border-black shadow-none bg-white rounded-none border-t-0">
+                  <CardContent className="p-12 text-center">
+                    <div className="bg-yellow-400 p-8 rounded-3xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 inline-block">
+                      <MessageSquare className="text-black text-6xl" />
+                    </div>
+                    <h3 className="text-3xl font-black text-black mb-4 uppercase">
+                      Timeline Kosong
+                    </h3>
+                    <p className="text-lg font-bold text-gray-600 mb-8">
+                      Jadilah yang pertama posting hari ini!
+                    </p>
+                    <Button
+                      className="bg-yellow-400 text-black hover:bg-yellow-500 border-4 border-black rounded-2xl px-8 py-4 font-black text-lg shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:scale-105"
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          ".tweet-input",
+                        ) as HTMLTextAreaElement;
+                        textarea?.focus();
+                        window.scrollTo(0, 0);
+                      }}
+                    >
+                      <Plus className="w-6 h-6 mr-3" />
+                      BUAT POST PERTAMA
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="divide-y-4 divide-black">
+                  {(posts as Post[])
+                    .filter((post: Post) => {
+                      const deletedPosts = JSON.parse(
+                        localStorage.getItem("deletedPosts") || "[]",
+                      );
+                      return !deletedPosts.includes(post.idPostingan);
+                    })
+                    .sort((a, b) => {
+                      const dateA = new Date(a.timestamp).getTime();
+                      const dateB = new Date(b.timestamp).getTime();
+
+                      if (
+                        isNaN(dateA) ||
+                        isNaN(dateB) ||
+                        Math.abs(dateA - dateB) < 1000
+                      ) {
+                        const idA = Number.parseInt(
+                          (a.idPostingan || "0").replace(/\D/g, "") || "0",
+                        );
+                        const idB = Number.parseInt(
+                          (b.idPostingan || "0").replace(/\D/g, "") || "0",
+                        );
+                        return idB - idA;
+                      }
+
+                      return dateB - dateA;
+                    })
+                    .map((post: Post, index: number) => {
+                      const baseId = post.idPostingan || `temp-${index}`;
+                      const timestamp = post.timestamp
+                        ? new Date(post.timestamp).getTime()
+                        : Date.now() + index;
+                      const content = (post.judul + post.deskripsi)
+                        .slice(0, 10)
+                        .replace(/\s/g, "");
+                      const uniqueKey = `${baseId}-${timestamp}-${content}-${index}`;
+
+                      return (
+                        <PostCard
+                          key={uniqueKey}
+                          post={post}
+                          onLike={(postId, type) =>
+                            likePostMutation.mutate({ postId, type })
+                          }
+                          onDelete={(postId) =>
+                            deletePostMutation.mutate(postId)
+                          }
+                        />
+                      );
+                    })}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Posts Feed Section */}
+          {/* Right Sidebar - Trending Topics (Desktop Only) */}
           <div
-            className={`transform transition-all duration-1000 delay-500 ${
+            className={`hidden xl:block w-80 ml-8 transform transition-all duration-1000 delay-500 ${
               isVisible
                 ? "translate-y-0 opacity-100"
                 : "translate-y-10 opacity-0"
             }`}
           >
-            <div className="flex justify-between items-center mb-8">
-              <div className="flex items-center space-x-4">
-                <div className="bg-pink-400 p-3 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                  <MessageSquare className="w-6 h-6 text-black" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-black text-black uppercase">
-                    Feed Keluh Kesah
-                  </h2>
-                  <p className="text-lg font-bold text-gray-600">
-                    Suara mahasiswa dari seluruh Indonesia
-                  </p>
-                </div>
-              </div>
-
-              <Button
-                variant="outline"
-                onClick={() => refetchPosts()}
-                disabled={isLoading}
-                className="border-4 border-black text-black bg-white hover:bg-gray-100 rounded-2xl px-6 py-3 font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-300"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-4 border-black border-t-transparent rounded-full animate-spin mr-2" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-5 h-5 mr-2" />
-                    Refresh
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {isLoading ? (
-              <div className="text-center py-16">
-                <div className="bg-cyan-400 p-8 rounded-3xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 animate-bounce inline-block">
-                  <MessageSquare className="text-black text-6xl" />
-                </div>
-                <h3 className="text-3xl font-black text-black mb-4">
-                  LOADING POSTS...
-                </h3>
-                <p className="text-lg font-bold text-gray-600">
-                  Mengambil keluh kesah terbaru
-                </p>
-              </div>
-            ) : !posts || posts.length === 0 ? (
+            <div className="sticky top-6 space-y-6">
+              {/* Trending Topics Card */}
               <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white rounded-2xl">
-                <CardContent className="p-12 text-center">
-                  <div className="bg-yellow-400 p-8 rounded-3xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 inline-block">
-                    <Plus className="text-black text-6xl" />
+                <CardHeader className="bg-pink-400 border-b-4 border-black rounded-t-2xl">
+                  <CardTitle className="flex items-center space-x-3 text-2xl font-black text-black uppercase">
+                    <TrendingUp className="w-6 h-6" />
+                    <span>Trending Topics</span>
+                    <Badge className="bg-white text-black border-2 border-black font-black rounded-full">
+                      HOT
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    {topTrending.length > 0 ? (
+                      topTrending.map(({ topic, count }, index) => (
+                        <div
+                          key={topic}
+                          className="bg-gray-50 hover:bg-pink-400 p-4 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:scale-105 cursor-pointer group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="bg-white w-8 h-8 rounded-full flex items-center justify-center border-2 border-black font-black text-sm">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <p className="font-black text-lg capitalize text-black group-hover:text-black flex items-center">
+                                  <Hash className="w-4 h-4 mr-1" />
+                                  {topic}
+                                </p>
+                                <p className="text-gray-600 text-sm font-bold">
+                                  {count} postingan
+                                </p>
+                              </div>
+                            </div>
+                            <Fire className="w-5 h-5 text-orange-500" />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <Hash className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600 font-bold">
+                          Belum ada trending topics
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <h3 className="text-3xl font-black text-black mb-4 uppercase">
-                    Belum Ada Postingan
-                  </h3>
-                  <p className="text-lg font-bold text-gray-600 mb-8">
-                    Jadilah yang pertama menyuarakan aspirasi!
-                  </p>
-                  <Button
-                    className="bg-yellow-400 text-black hover:bg-yellow-500 border-4 border-black rounded-2xl px-8 py-4 font-black text-lg shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:scale-105"
-                    onClick={() => window.scrollTo(0, 0)}
-                  >
-                    <Plus className="w-6 h-6 mr-3" />
-                    BUAT POSTINGAN PERTAMA
-                  </Button>
                 </CardContent>
               </Card>
-            ) : (
-              <div className="space-y-6">
-                {(posts as Post[])
-                  .filter((post: Post) => {
-                    const deletedPosts = JSON.parse(
-                      localStorage.getItem("deletedPosts") || "[]",
-                    );
-                    return !deletedPosts.includes(post.idPostingan);
-                  })
-                  .sort((a, b) => {
-                    const dateA = new Date(a.timestamp).getTime();
-                    const dateB = new Date(b.timestamp).getTime();
 
-                    if (
-                      isNaN(dateA) ||
-                      isNaN(dateB) ||
-                      Math.abs(dateA - dateB) < 1000
-                    ) {
-                      const idA = Number.parseInt(
-                        (a.idPostingan || "0").replace(/\D/g, "") || "0",
-                      );
-                      const idB = Number.parseInt(
-                        (b.idPostingan || "0").replace(/\D/g, "") || "0",
-                      );
-                      return idB - idA;
-                    }
+              {/* Stats Card */}
+              <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white rounded-2xl">
+                <CardHeader className="bg-green-400 border-b-4 border-black rounded-t-2xl">
+                  <CardTitle className="flex items-center space-x-3 text-2xl font-black text-black uppercase">
+                    <BarChart3 className="w-6 h-6" />
+                    <span>Statistik Hari Ini</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div className="bg-yellow-400 p-4 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex justify-between items-center">
+                      <div>
+                        <span className="text-black font-bold text-sm uppercase">
+                          Total Posts
+                        </span>
+                        <div className="text-2xl font-black text-black">
+                          {stats.totalPosts}
+                        </div>
+                      </div>
+                      <MessageSquare className="w-6 h-6 text-black" />
+                    </div>
 
-                    return dateB - dateA;
-                  })
-                  .map((post: Post, index: number) => {
-                    console.log(`Rendering post ${post.idPostingan}:`, post);
-                    const baseId = post.idPostingan || `temp-${index}`;
-                    const timestamp = post.timestamp
-                      ? new Date(post.timestamp).getTime()
-                      : Date.now() + index;
-                    const content = (post.judul + post.deskripsi)
-                      .slice(0, 10)
-                      .replace(/\s/g, "");
-                    const uniqueKey = `${baseId}-${timestamp}-${content}-${index}`;
+                    <div className="bg-pink-400 p-4 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex justify-between items-center">
+                      <div>
+                        <span className="text-black font-bold text-sm uppercase">
+                          Total Likes
+                        </span>
+                        <div className="text-2xl font-black text-black">
+                          {stats.totalLikes}
+                        </div>
+                      </div>
+                      <Heart className="w-6 h-6 text-black" />
+                    </div>
 
-                    return (
-                      <PostCard
-                        key={uniqueKey}
-                        post={post}
-                        onLike={(postId, type) =>
-                          likePostMutation.mutate({ postId, type })
-                        }
-                        onDelete={(postId) => deletePostMutation.mutate(postId)}
-                      />
-                    );
-                  })}
-              </div>
-            )}
+                    <div className="bg-cyan-400 p-4 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex justify-between items-center">
+                      <div>
+                        <span className="text-black font-bold text-sm uppercase">
+                          Hari Ini
+                        </span>
+                        <div className="text-2xl font-black text-black">
+                          +{stats.todayPosts}
+                        </div>
+                      </div>
+                      <TrendingUp className="w-6 h-6 text-black" />
+                    </div>
+
+                    <div className="bg-purple-400 p-4 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex justify-between items-center">
+                      <div>
+                        <span className="text-black font-bold text-sm uppercase">
+                          Active Users
+                        </span>
+                        <div className="text-2xl font-black text-black">
+                          {stats.activeUsers}
+                        </div>
+                      </div>
+                      <Users className="w-6 h-6 text-black" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
