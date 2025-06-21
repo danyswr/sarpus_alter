@@ -18,10 +18,13 @@ git push -u origin main
 1. Login ke https://vercel.com
 2. Klik "New Project"
 3. Pilih repository GitHub Anda
-4. Framework: **Other**
+4. Framework: **Vite**
 5. Build Command: `vite build`
 6. Output Directory: `dist`
 7. Install Command: `npm install`
+8. Root Directory: `.` (default)
+
+**PENTING**: Jika ada error "functions property cannot be used with builds", hapus sementara `vercel.json` dan deploy tanpa konfigurasi khusus terlebih dahulu.
 
 ### Environment Variables
 Tambahkan di Vercel Dashboard > Settings > Environment Variables:
