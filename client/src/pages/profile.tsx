@@ -21,11 +21,11 @@ import { cn } from "@/lib/utils"
 export default function Profile() {
   const { user, isLoading: authLoading } = useAuth()
   const [, setLocation] = useLocation()
-  const [sidebarOpen, setSidebarOpen = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed = useState(false)
-  const [isEditing, setIsEditing = useState(false)
-  const [isVisible, setIsVisible = useState(false)
-  const [editForm, setEditForm = useState({
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
+  const [editForm, setEditForm] = useState({
     username: "",
     email: "",
     nim: "",
@@ -36,10 +36,10 @@ export default function Profile() {
     website: "",
     profileImageUrl: "",
   })
-  const [error, setError = useState("")
-  const [success, setSuccess = useState("")
-  const [profileImage, setProfileImage = useState<string | null>(null)
-  const [isUploadingImage, setIsUploadingImage = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
@@ -62,10 +62,12 @@ export default function Profile() {
     localStorage.setItem("sidebarCollapsed", JSON.stringify(collapsed))
   }
 
+  // Check authentication and redirect if needed
   useEffect(() => {
     if (!authLoading && !user) {
       setLocation("/login")
     }
+
     if (user) {
       setEditForm({
         username: user.username || "",
@@ -102,32 +104,15 @@ export default function Profile() {
   })
 
   const uploadImageMutation = useMutation({
-    mutationFn: async (file: File) => {
-      return new Promise<string>((resolve, reject) => {
+    mutationFn: async (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
         const reader = new FileReader()
         reader.onload = async () => {
           try {
             const base64 = reader.result as string
-            const base64Data = base64.split(",")[1]
-
-            const response = await fetch("/api/upload", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
-              },
-              body: JSON.stringify({
-                image: base64Data,
-                fileName: file.name,
-              }),
-            })
-
-            if (!response.ok) {
-              throw new Error("Gagal mengupload gambar")
-            }
-
-            const result = await response.json()
-            resolve(result.imageUrl)
+            const result = await api.upload.uploadImage(base64, file.name)
+            const imageUrl = (result as any).imageUrl || ""
+            resolve(imageUrl)
           } catch (error) {
             reject(error)
           }
@@ -171,566 +156,462 @@ export default function Profile() {
     }
   }
 
-  const likePostMutation = useMutation({
-    mutationFn: ({ postId, type }: { postId: string; type: "like" | "dislike" }) => api.posts.likePost(postId, type),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] })
-    },
-  })
+  const handleSaveProfile = () => {
+    updateProfileMutation.mutate(editForm)
+  }
 
-  const deletePostMutation = useMutation({
-    mutationFn: (postId: string) => api.posts.deletePost(postId, user!.idUsers),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] })
-    },
-  })
+  const handleCancelEdit = () => {
+    if (user) {
+      setEditForm({
+        username: user.username || "",
+        email: user.email || "",
+        nim: user.nim || "",
+        gender: user.gender || "",
+        jurusan: user.jurusan || "",
+        bio: user.bio || "",
+        location: user.location || "",
+        website: user.website || "",
+        profileImageUrl: user.profileImageUrl || "",
+      })
+      setProfileImage(user.profileImageUrl || null)
+    }
+    setIsEditing(false)
+    setError("")
+    setSuccess("")
+  }
 
-  if (authLoading || !user) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="bg-cyan-400 p-6 rounded-2xl border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] mb-6 animate-bounce">
-            <User className="text-black text-4xl mx-auto" />
-          </div>
-          <h1 className="text-3xl font-black text-black mb-4">LOADING PROFILE</h1>
-          <p className="text-gray-600 mb-4 font-bold">Memuat data profil...</p>
-          <div className="w-64 h-3 bg-gray-200 rounded-full mx-auto border-2 border-black">
-            <div
-              className="h-full bg-yellow-400 rounded-full transition-all duration-300 animate-pulse"
-              style={{ width: "75%" }}
-            />
-          </div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Memuat profil...</p>
         </div>
       </div>
     )
   }
 
-  const userPosts = posts.filter((post: Post) => post.idUsers === user.idUsers)
-  const userStats = {
-    posts: userPosts.length,
-    likes: userPosts.reduce((sum: number, post: Post) => sum + (post.likes || 0), 0),
-    totalPosts: posts.length,
+  if (!user) {
+    return null
   }
 
-  const jurusanOptions = [
-    "Teknik Informatika",
-    "Sistem Informasi",
-    "Teknik Elektro",
-    "Teknik Sipil",
-    "Manajemen",
-    "Akuntansi",
-    "Hukum",
-    "Kedokteran",
-  ]
-
-  const genderOptions = [
-    { value: "male", label: "Laki-laki" },
-    { value: "female", label: "Perempuan" },
-  ]
-
-  const handleSaveProfile = () => {
-    updateProfileMutation.mutate(editForm)
-  }
+  const userPosts = posts.filter(post => post.idUsers === user.idUsers)
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Improved Sidebar */}
-      <ImprovedSidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        isCollapsed={sidebarCollapsed}
-        onToggleCollapse={handleToggleCollapse}
-        onCreatePost={() => {
-          setLocation("/dashboard")
-        }}
-      />
-
-      {/* Main Content */}
-      <div className={`transition-all duration-300 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"}`}>
-        {/* Mobile Header */}
-        <div className="lg:hidden bg-cyan-400 border-b-2 border-black px-4 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-40 shadow-[0px_2px_0px_0px_rgba(0,0,0,1)]">
-          <Button
-            variant="ghost"
-            onClick={() => setSidebarOpen(true)}
-            className="bg-white border-2 border-black rounded-xl p-2 hover:bg-gray-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all duration-300"
-          >
-            <Menu className="w-4 h-4 text-black" />
-          </Button>
-
-          <div className="flex items-center space-x-2">
-            <div className="bg-white p-1.5 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-              <User className="text-black text-lg" />
-            </div>
-            <div>
-              <h1 className="text-lg font-black text-black">PROFIL</h1>
-              <p className="text-xs text-black font-bold -mt-0.5">USER PROFILE</p>
-            </div>
-          </div>
-
-          <Button
-            onClick={() => setLocation("/dashboard")}
-            className="bg-white text-black border-2 border-black rounded-xl p-2 hover:bg-gray-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all duration-300"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="flex">
+        <div className="hidden lg:block">
+          <ImprovedSidebar
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            isCollapsed={sidebarCollapsed}
+            onToggleCollapse={handleToggleCollapse}
+          />
         </div>
 
-        {/* Content Container */}
-        <div className="pt-16 lg:pt-6 px-4 lg:px-6">
-          <div className="max-w-6xl mx-auto space-y-6">
-            {/* Alerts */}
-            {error && (
-              <Alert
-                className={cn(
-                  "border-2 border-red-500 bg-red-100 rounded-xl shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] transform transition-all duration-500",
-                  error ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0",
-                )}
-              >
-                <AlertDescription className="text-red-700 font-bold flex items-center">
-                  <X className="w-4 h-4 mr-2" />
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <div className="w-80 h-full" onClick={(e) => e.stopPropagation()}>
+              <ImprovedSidebar
+                isOpen={true}
+                onClose={() => setSidebarOpen(false)}
+                isCollapsed={false}
+                onToggleCollapse={() => {}}
+              />
+            </div>
+          </div>
+        )}
 
-            {success && (
-              <Alert
-                className={cn(
-                  "border-2 border-green-500 bg-green-100 rounded-xl shadow-[4px_4px_0px_0px_rgba(34,197,94,1)] transform transition-all duration-500",
-                  success ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0",
-                )}
-              >
-                <AlertDescription className="text-green-700 font-bold flex items-center">
-                  <Trophy className="w-4 h-4 mr-2" />
-                  {success}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Profile Header Card */}
-            <div
-              className={`transform transition-all duration-1000 ${
-                isVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
-              }`}
+        <main
+          className={cn(
+            "flex-1 transition-all duration-300 ease-in-out",
+            sidebarCollapsed ? "lg:ml-20" : "lg:ml-80"
+          )}
+        >
+          {/* Mobile Header */}
+          <div className="lg:hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700/50 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(true)}
+              className="text-gray-600 dark:text-gray-300"
             >
-              <Card className="border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] bg-white rounded-xl overflow-hidden">
-                {/* Cover Photo */}
-                <div className="h-24 md:h-32 bg-gradient-to-r from-cyan-400 via-yellow-400 to-pink-400 relative border-b-2 border-black">
-                  <div className="absolute inset-0 bg-black bg-opacity-10" />
+              <Menu className="h-6 w-6" />
+            </Button>
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Profil Saya
+            </h1>
+            <div className="w-10" />
+          </div>
 
-                  {/* Cover Content */}
-                  <div className="absolute inset-0 flex items-end p-4 md:p-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-white p-2 md:p-3 rounded-xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-                        <Trophy className="w-5 h-5 md:w-6 md:h-6 text-black" />
-                      </div>
-                      <div className="hidden sm:block">
-                        <h1 className="text-lg md:text-xl font-black text-white drop-shadow-lg">PROFIL MAHASISWA</h1>
-                        <p className="text-sm md:text-base font-bold text-white drop-shadow-lg">
-                          SARPUS Community Member
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+          <div
+            className={cn(
+              "container mx-auto px-4 py-6 transition-all duration-700",
+              isVisible
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-4"
+            )}
+          >
+            {/* Profile Header */}
+            <Card className="mb-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Profil Saya
+                  </CardTitle>
+                  <Button
+                    onClick={() => setIsEditing(!isEditing)}
+                    variant={isEditing ? "secondary" : "default"}
+                    className="transition-all duration-200"
+                  >
+                    {isEditing ? (
+                      <>
+                        <X className="w-4 h-4 mr-2" />
+                        Batal
+                      </>
+                    ) : (
+                      <>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Profil
+                      </>
+                    )}
+                  </Button>
                 </div>
+              </CardHeader>
+              <CardContent>
+                {error && (
+                  <Alert className="mb-4 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
+                    <AlertDescription className="text-red-800 dark:text-red-200">
+                      {error}
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-                <CardContent className="p-0">
-                  {/* Main Profile Section */}
-                  <div className="p-4 md:p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between space-y-6 lg:space-y-0">
-                      {/* Left Section - Profile Info */}
-                      <div className="flex flex-col sm:flex-row sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 flex-1">
-                        {/* Profile Image */}
-                        <div className="relative mx-auto sm:mx-0 -mt-8 md:-mt-12">
-                          <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full border-4 border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center relative z-10 overflow-hidden">
-                            {profileImage || user.profileImageUrl ? (
+                {success && (
+                  <Alert className="mb-4 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+                    <AlertDescription className="text-green-800 dark:text-green-200">
+                      {success}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="grid md:grid-cols-3 gap-6">
+                  {/* Profile Image */}
+                  <div className="md:col-span-1">
+                    <div className="text-center">
+                      <div className="relative inline-block mb-4">
+                        <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 p-1">
+                          <div className="w-full h-full rounded-full bg-white dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                            {profileImage ? (
                               <img
-                                src={profileImage || user.profileImageUrl || "/placeholder.svg"}
+                                src={profileImage}
                                 alt="Profile"
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover rounded-full"
                               />
                             ) : (
-                              <span className="text-white text-xl md:text-2xl font-black">
-                                {user.username
-                                  ? user.username.charAt(0).toUpperCase()
-                                  : user.email
-                                    ? user.email.charAt(0).toUpperCase()
-                                    : "U"}
-                              </span>
+                              <User className="w-12 h-12 text-gray-400" />
                             )}
                           </div>
-
-                          {/* Profile Image Upload Button */}
+                        </div>
+                        {isEditing && (
                           <Button
-                            size="sm"
-                            className="absolute -bottom-0.5 -right-0.5 w-6 h-6 md:w-7 md:h-7 rounded-full p-0 bg-yellow-400 border-2 border-black hover:bg-yellow-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 z-20"
+                            size="icon"
+                            variant="secondary"
+                            className="absolute -bottom-2 -right-2 rounded-full shadow-lg"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isUploadingImage}
                           >
                             {isUploadingImage ? (
-                              <div className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
                             ) : (
-                              <Camera className="w-3 h-3 text-black" />
+                              <Camera className="w-4 h-4" />
                             )}
                           </Button>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                          {user.username}
+                        </h3>
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          <Crown className="w-3 h-3 mr-1" />
+                          {user.role === 'admin' ? 'Administrator' : 'Mahasiswa'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
 
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            className="hidden"
-                          />
+                  {/* Profile Form */}
+                  <div className="md:col-span-2">
+                    <div className="grid gap-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <User className="w-4 h-4 inline mr-2" />
+                            Username
+                          </label>
+                          {isEditing ? (
+                            <Input
+                              value={editForm.username}
+                              onChange={(e) => setEditForm(prev => ({...prev, username: e.target.value}))}
+                              placeholder="Username"
+                              className="transition-all duration-200"
+                            />
+                          ) : (
+                            <p className="text-gray-900 dark:text-white py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                              {user.username || "-"}
+                            </p>
+                          )}
                         </div>
 
-                        {/* User Info */}
-                        <div className="text-center sm:text-left flex-1 pt-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Email
+                          </label>
                           {isEditing ? (
-                            <div className="space-y-4">
-                              <Input
-                                value={editForm.username}
-                                onChange={(e) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    username: e.target.value,
-                                  }))
-                                }
-                                placeholder="Username"
-                                className="text-xl font-black border-2 border-black rounded-xl focus:border-cyan-400 px-4 py-3"
-                              />
-                              <Input
-                                value={editForm.email}
-                                onChange={(e) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    email: e.target.value,
-                                  }))
-                                }
-                                type="email"
-                                placeholder="Email"
-                                className="font-bold border-2 border-black rounded-xl focus:border-cyan-400 px-4 py-3"
-                              />
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Input
-                                  value={editForm.nim}
-                                  onChange={(e) =>
-                                    setEditForm((prev) => ({
-                                      ...prev,
-                                      nim: e.target.value,
-                                    }))
-                                  }
-                                  placeholder="NIM"
-                                  className="font-bold border-2 border-black rounded-xl focus:border-cyan-400 px-4 py-3"
-                                />
-                                <Select
-                                  value={editForm.gender}
-                                  onValueChange={(value) =>
-                                    setEditForm((prev) => ({
-                                      ...prev,
-                                      gender: value,
-                                    }))
-                                  }
-                                >
-                                  <SelectTrigger className="font-bold border-2 border-black rounded-xl focus:border-cyan-400 px-4 py-3">
-                                    <SelectValue placeholder="Pilih Gender" />
-                                  </SelectTrigger>
-                                  <SelectContent className="border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                                    {genderOptions.map((gender) => (
-                                      <SelectItem key={gender.value} value={gender.value}>
-                                        {gender.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <Select
-                                value={editForm.jurusan}
-                                onValueChange={(value) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    jurusan: value,
-                                  }))
-                                }
-                              >
-                                <SelectTrigger className="font-bold border-2 border-black rounded-xl focus:border-cyan-400 px-4 py-3">
-                                  <SelectValue placeholder="Pilih Jurusan" />
-                                </SelectTrigger>
-                                <SelectContent className="border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                                  {jurusanOptions.map((jurusan) => (
-                                    <SelectItem key={jurusan} value={jurusan}>
-                                      {jurusan}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Textarea
-                                value={editForm.bio}
-                                onChange={(e) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    bio: e.target.value,
-                                  }))
-                                }
-                                placeholder="Bio (ceritakan tentang diri Anda)"
-                                className="font-bold border-2 border-black rounded-xl focus:border-cyan-400 px-4 py-3 resize-none"
-                                rows={3}
-                              />
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Input
-                                  value={editForm.location}
-                                  onChange={(e) =>
-                                    setEditForm((prev) => ({
-                                      ...prev,
-                                      location: e.target.value,
-                                    }))
-                                  }
-                                  placeholder="Lokasi"
-                                  className="font-bold border-2 border-black rounded-xl focus:border-cyan-400 px-4 py-3"
-                                />
-                                <Input
-                                  value={editForm.website}
-                                  onChange={(e) =>
-                                    setEditForm((prev) => ({
-                                      ...prev,
-                                      website: e.target.value,
-                                    }))
-                                  }
-                                  placeholder="Website/Portfolio"
-                                  type="url"
-                                  className="font-bold border-2 border-black rounded-xl focus:border-cyan-400 px-4 py-3"
-                                />
-                              </div>
-                            </div>
+                            <Input
+                              type="email"
+                              value={editForm.email}
+                              onChange={(e) => setEditForm(prev => ({...prev, email: e.target.value}))}
+                              placeholder="Email"
+                              className="transition-all duration-200"
+                            />
                           ) : (
-                            <div className="space-y-4">
-                              {/* Name and Role */}
-                              <div className="space-y-2">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0">
-                                  <h2 className="text-2xl md:text-3xl font-black text-black">{user.username}</h2>
-                                  {user.role === "admin" && (
-                                    <Badge className="bg-red-400 text-black border-2 border-black font-black rounded-full mx-auto sm:mx-0 w-fit">
-                                      <Crown className="w-3 h-3 mr-1" />
-                                      ADMIN
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-lg font-bold text-gray-600">{user.email}</p>
-                              </div>
-
-                              {/* User Details */}
-                              {(user.nim || user.gender || user.jurusan) && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  {user.nim && (
-                                    <div className="bg-yellow-400 p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center space-x-3">
-                                      <GraduationCap className="w-5 h-5 text-black flex-shrink-0" />
-                                      <div className="min-w-0">
-                                        <span className="font-black text-black uppercase text-xs block">NIM</span>
-                                        <div className="font-bold text-black truncate">{user.nim}</div>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {user.gender && (
-                                    <div className="bg-pink-400 p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center space-x-3">
-                                      <User className="w-5 h-5 text-black flex-shrink-0" />
-                                      <div className="min-w-0">
-                                        <span className="font-black text-black uppercase text-xs block">Gender</span>
-                                        <div className="font-bold text-black capitalize truncate">
-                                          {user.gender === "male" ? "Laki-laki" : "Perempuan"}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {user.jurusan && (
-                                    <div className="bg-green-400 p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center space-x-3 sm:col-span-2">
-                                      <BookOpen className="w-5 h-5 text-black flex-shrink-0" />
-                                      <div className="min-w-0">
-                                        <span className="font-black text-black uppercase text-xs block">Jurusan</span>
-                                        <div className="font-bold text-black truncate">{user.jurusan}</div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Bio */}
-                              {user.bio && (
-                                <div className="bg-cyan-400 p-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                                  <span className="font-black text-black uppercase text-xs block mb-2">Bio</span>
-                                  <p className="text-black font-bold leading-relaxed">{user.bio}</p>
-                                </div>
-                              )}
-
-                              {/* Location and Website */}
-                              {(user.location || user.website) && (
-                                <div className="flex flex-wrap gap-3">
-                                  {user.location && (
-                                    <div className="bg-purple-400 p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center space-x-2">
-                                      <MapPin className="w-4 h-4 text-black" />
-                                      <span className="font-bold text-black">{user.location}</span>
-                                    </div>
-                                  )}
-
-                                  {user.website && (
-                                    <div className="bg-orange-400 p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center space-x-2">
-                                      <Globe className="w-4 h-4 text-black" />
-                                      <a
-                                        href={
-                                          user.website.startsWith("http") ? user.website : `https://${user.website}`
-                                        }
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="font-bold text-black hover:underline"
-                                      >
-                                        Website
-                                      </a>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                            <p className="text-gray-900 dark:text-white py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                              {user.email || "-"}
+                            </p>
                           )}
                         </div>
                       </div>
 
-                      {/* Right Section - Action Buttons */}
-                      <div className="flex flex-col space-y-3 lg:ml-6">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <GraduationCap className="w-4 h-4 inline mr-2" />
+                            NIM
+                          </label>
+                          {isEditing ? (
+                            <Input
+                              value={editForm.nim}
+                              onChange={(e) => setEditForm(prev => ({...prev, nim: e.target.value}))}
+                              placeholder="NIM"
+                              className="transition-all duration-200"
+                            />
+                          ) : (
+                            <p className="text-gray-900 dark:text-white py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                              {user.nim || "-"}
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Gender
+                          </label>
+                          {isEditing ? (
+                            <Select
+                              value={editForm.gender}
+                              onValueChange={(value) => setEditForm(prev => ({...prev, gender: value}))}
+                            >
+                              <SelectTrigger className="transition-all duration-200">
+                                <SelectValue placeholder="Pilih gender" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Laki-laki">Laki-laki</SelectItem>
+                                <SelectItem value="Perempuan">Perempuan</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <p className="text-gray-900 dark:text-white py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                              {user.gender || "-"}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          <BookOpen className="w-4 h-4 inline mr-2" />
+                          Jurusan
+                        </label>
                         {isEditing ? (
-                          <>
-                            <Button
-                              onClick={handleSaveProfile}
-                              className="bg-yellow-400 text-black hover:bg-yellow-500 border-2 border-black rounded-xl px-6 py-3 font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:scale-105"
-                              disabled={updateProfileMutation.isPending}
-                            >
-                              <Save className="w-4 h-4 mr-2" />
-                              {updateProfileMutation.isPending ? "MENYIMPAN..." : "SIMPAN"}
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                setIsEditing(false)
-                                setEditForm({
-                                  username: user.username || "",
-                                  email: user.email || "",
-                                  nim: user.nim || "",
-                                  gender: user.gender || "",
-                                  jurusan: user.jurusan || "",
-                                  bio: user.bio || "",
-                                  location: user.location || "",
-                                  website: user.website || "",
-                                  profileImageUrl: user.profileImageUrl || "",
-                                })
-                              }}
-                              className="border-2 border-black text-black bg-white hover:bg-gray-100 rounded-xl px-6 py-3 font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300"
-                            >
-                              <X className="w-4 h-4 mr-2" />
-                              BATAL
-                            </Button>
-                          </>
+                          <Input
+                            value={editForm.jurusan}
+                            onChange={(e) => setEditForm(prev => ({...prev, jurusan: e.target.value}))}
+                            placeholder="Jurusan"
+                            className="transition-all duration-200"
+                          />
                         ) : (
-                          <Button
-                            onClick={() => setIsEditing(true)}
-                            className="bg-yellow-400 text-black hover:bg-yellow-500 border-2 border-black rounded-xl px-6 py-3 font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:scale-105"
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            EDIT PROFIL
-                          </Button>
+                          <p className="text-gray-900 dark:text-white py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                            {user.jurusan || "-"}
+                          </p>
                         )}
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Stats Section */}
-                  <div className="border-t-2 border-black bg-gray-50 p-4 md:p-6">
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-yellow-400 p-4 md:p-6 rounded-xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-center hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300">
-                        <MessageSquare className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-black" />
-                        <p className="text-2xl md:text-3xl font-black text-black">{userStats.posts}</p>
-                        <p className="text-black font-bold text-xs md:text-sm uppercase">Postingan</p>
-                      </div>
-                      <div className="bg-pink-400 p-4 md:p-6 rounded-xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-center hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300">
-                        <Heart className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-black" />
-                        <p className="text-2xl md:text-3xl font-black text-black">{userStats.likes}</p>
-                        <p className="text-black font-bold text-xs md:text-sm uppercase">Likes</p>
-                      </div>
-                      <div className="bg-green-400 p-4 md:p-6 rounded-xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-center hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300">
-                        <TrendingUp className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-black" />
-                        <p className="text-2xl md:text-3xl font-black text-black">
-                          {Math.round((userStats.posts / Math.max(userStats.totalPosts, 1)) * 100) || 0}%
-                        </p>
-                        <p className="text-black font-bold text-xs md:text-sm uppercase">Kontribusi</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* My Posts Section */}
-            <div
-              className={`transform transition-all duration-1000 delay-300 ${
-                isVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
-              }`}
-            >
-              <Card className="border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] bg-white rounded-xl">
-                <CardHeader className="bg-pink-400 border-b-2 border-black rounded-t-xl p-4">
-                  <CardTitle className="flex items-center space-x-3 text-xl font-black text-black uppercase">
-                    <Target className="w-5 h-5" />
-                    <span>Postingan Saya</span>
-                    <Badge className="bg-white text-black border-2 border-black font-black rounded-full">
-                      {userPosts.length}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 md:p-6">
-                  {isLoading ? (
-                    <div className="text-center py-12">
-                      <div className="bg-cyan-400 p-6 rounded-2xl border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] mb-6 animate-bounce inline-block">
-                        <MessageSquare className="text-black text-4xl" />
-                      </div>
-                      <h3 className="text-2xl font-black text-black mb-3">LOADING POSTS...</h3>
-                      <p className="text-base font-bold text-gray-600">Mengambil postingan Anda</p>
-                    </div>
-                  ) : userPosts.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="bg-yellow-400 p-6 rounded-2xl border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] mb-6 inline-block">
-                        <MessageSquare className="text-black text-4xl" />
-                      </div>
-                      <h3 className="text-2xl font-black text-black mb-3 uppercase">Belum Ada Postingan</h3>
-                      <p className="text-base font-bold text-gray-600 mb-6">
-                        Mulai berbagi keluh kesah dan aspirasi Anda dengan komunitas!
-                      </p>
-                      <Button
-                        onClick={() => setLocation("/dashboard")}
-                        className="bg-yellow-400 text-black hover:bg-yellow-500 border-2 border-black rounded-xl px-6 py-3 font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:scale-105"
-                      >
-                        <Plus className="w-5 h-5 mr-2" />
-                        BUAT POSTINGAN PERTAMA
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {userPosts
-                        .sort((a, b) => {
-                          const dateA = new Date(a.timestamp).getTime()
-                          const dateB = new Date(b.timestamp).getTime()
-                          return dateB - dateA
-                        })
-                        .map((post: Post) => (
-                          <PostCard
-                            key={post.idPostingan}
-                            post={post}
-                            onLike={(postId, type) => likePostMutation.mutate({ postId, type })}
-                            onDelete={(postId) => deletePostMutation.mutate(postId)}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Bio
+                        </label>
+                        {isEditing ? (
+                          <Textarea
+                            value={editForm.bio}
+                            onChange={(e) => setEditForm(prev => ({...prev, bio: e.target.value}))}
+                            placeholder="Ceritakan tentang diri Anda..."
+                            className="transition-all duration-200 min-h-[80px]"
                           />
-                        ))}
+                        ) : (
+                          <p className="text-gray-900 dark:text-white py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-md min-h-[80px]">
+                            {user.bio || "Belum ada bio"}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <MapPin className="w-4 h-4 inline mr-2" />
+                            Lokasi
+                          </label>
+                          {isEditing ? (
+                            <Input
+                              value={editForm.location}
+                              onChange={(e) => setEditForm(prev => ({...prev, location: e.target.value}))}
+                              placeholder="Lokasi"
+                              className="transition-all duration-200"
+                            />
+                          ) : (
+                            <p className="text-gray-900 dark:text-white py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                              {user.location || "-"}
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <Globe className="w-4 h-4 inline mr-2" />
+                            Website
+                          </label>
+                          {isEditing ? (
+                            <Input
+                              value={editForm.website}
+                              onChange={(e) => setEditForm(prev => ({...prev, website: e.target.value}))}
+                              placeholder="https://website.com"
+                              className="transition-all duration-200"
+                            />
+                          ) : (
+                            <p className="text-gray-900 dark:text-white py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                              {user.website ? (
+                                <a
+                                  href={user.website}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                                >
+                                  {user.website}
+                                </a>
+                              ) : (
+                                "-"
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {isEditing && (
+                        <div className="flex gap-3 pt-4">
+                          <Button
+                            onClick={handleSaveProfile}
+                            disabled={updateProfileMutation.isPending}
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+                          >
+                            {updateProfileMutation.isPending ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                Menyimpan...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4 mr-2" />
+                                Simpan Perubahan
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            onClick={handleCancelEdit}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Batal
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* User Posts Section */}
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-blue-600" />
+                  Postingan Saya ({userPosts.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : userPosts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      Anda belum membuat postingan apapun
+                    </p>
+                    <Button
+                      onClick={() => setLocation("/dashboard")}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Buat Postingan Pertama
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {userPosts.map((post) => (
+                      <PostCard
+                        key={post.idPostingan}
+                        post={post}
+                        onLike={(postId, type) => {}}
+                        onDelete={(postId) => {}}
+                        onUpdate={() => {}}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   )
