@@ -60,7 +60,12 @@ export default function Login() {
       const userData = await login(data.email, data.password);
       console.log("Login successful, checking role for redirect");
 
-      if (userData.role && (typeof userData.role === 'string' ? userData.role.toLowerCase() : userData.role) === "admin") {
+      if (
+        userData.role &&
+        (typeof userData.role === "string"
+          ? userData.role.toLowerCase()
+          : userData.role) === "admin"
+      ) {
         console.log("Redirecting admin to admin panel");
         window.location.href = "/admin";
       } else {
@@ -236,6 +241,7 @@ export default function Login() {
                     <div className="relative">
                       <Input
                         id="password"
+                        placeholder="Password Anda"
                         type={showPassword ? "text" : "password"}
                         {...register("password")}
                         className="pl-14 pr-14 py-4 border-4 border-black rounded-xl focus:border-pink-400 text-lg font-bold"

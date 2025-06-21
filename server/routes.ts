@@ -644,7 +644,7 @@ export function registerRoutes(app: Express): Server {
       let result;
       try {
         result = await storage.makeRequest('uploadImage', {
-          imageBase64: imageBase64,
+          imageData: imageBase64,
           fileName: fileName,
           userId: currentUser.idUsers
         });

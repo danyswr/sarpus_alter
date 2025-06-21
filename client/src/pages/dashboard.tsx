@@ -199,8 +199,13 @@ export default function Dashboard() {
   const handleTweet = () => {
     if (!user || !tweetText.trim()) return;
 
+    // Generate title from first 50 characters of description
+    const autoTitle = tweetText.length > 50 
+      ? tweetText.substring(0, 50) + "..." 
+      : tweetText;
+
     createPostMutation.mutate({
-      judul: "",
+      judul: autoTitle,
       deskripsi: tweetText,
       imageUrl: imageUrl,
       userId: user.idUsers,
