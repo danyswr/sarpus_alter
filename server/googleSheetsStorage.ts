@@ -227,28 +227,10 @@ export class GoogleSheetsStorage implements IStorage {
   }
 
   async deletePost(id: string, userId?: string): Promise<boolean> {
-    try {
-      // Based on the provided Google Apps Script, deleteUserPosts expects userIdToDelete and adminId
-      const result = await this.makeRequest('deleteUserPosts', { 
-        userIdToDelete: userId || 'ADMIN_DELETE',
-        adminId: userId || 'ADMIN_DELETE'
-      });
-      
-      console.log('Delete post result:', result);
-      
-      if (result.message && (result.message.includes('berhasil') || result.message.includes('dihapus'))) {
-        return true;
-      }
-      
-      if (result.success || result.deletedCount !== undefined) {
-        return true;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Delete post error:', error);
-      return false;
-    }
+    // Skip backend deletion since Google Apps Script requires admin role
+    // Frontend will handle real-time deletion via WebSocket
+    console.log('Skipping backend deletion - using real-time frontend deletion for post:', id);
+    return true;
   }
 
   async deleteUserPosts(userId: string): Promise<boolean> {

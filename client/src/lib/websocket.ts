@@ -119,8 +119,13 @@ class WebSocketClient {
         
       case 'post_deleted':
         console.log('Post deleted:', data.postId);
-        // Invalidate posts cache to trigger refetch
-        queryClient.invalidateQueries({ queryKey: ['/api/posts'] });
+        // Immediately remove post from cache for instant UI update
+        queryClient.setQueryData(['google-posts'], (oldData: any) => {
+          if (!oldData) return oldData;
+          return oldData.filter((post: any) => post.idPostingan !== data.postId);
+        });
+        // Also invalidate for consistency
+        queryClient.invalidateQueries({ queryKey: ['google-posts'] });
         this.triggerEvent('post_deleted', data);
         break;
         

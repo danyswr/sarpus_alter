@@ -95,7 +95,27 @@ export default function Dashboard() {
 
   const deletePostMutation = useMutation({
     mutationFn: (postId: string) => api.posts.deletePost(postId, user!.idUsers),
-    onSuccess: () => {
+    onMutate: async (postId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["google-posts"] });
+      
+      // Optimistically remove the post from the UI immediately
+      const previousPosts = queryClient.getQueryData(["google-posts"]);
+      queryClient.setQueryData(["google-posts"], (old: any) => {
+        if (!old) return old;
+        return old.filter((post: any) => post.idPostingan !== postId);
+      });
+      
+      return { previousPosts };
+    },
+    onError: (err, postId, context) => {
+      // Restore the previous data on error
+      if (context?.previousPosts) {
+        queryClient.setQueryData(["google-posts"], context.previousPosts);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
       queryClient.invalidateQueries({ queryKey: ["google-posts"] });
     },
   });
