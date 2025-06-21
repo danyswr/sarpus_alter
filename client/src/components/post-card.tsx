@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ThumbsUp, ThumbsDown, MessageCircle, Trash2, Edit3, Check, X, Send } from "lucide-react";
 import type { Post, Comment } from "@/lib/api";
 import { api } from "@/lib/api";
@@ -389,14 +390,35 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
                   </Button>
                 )}
                 {canDelete && onDelete && (
-                  <Button
-                    onClick={() => onDelete(post.idPostingan)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-400 hover:text-red-500"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-red-500"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Konfirmasi Hapus Post</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Apakah Anda yakin ingin menghapus postingan "{post.judul}"? 
+                          Tindakan ini tidak dapat dibatalkan.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => onDelete(post.idPostingan)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Ya, Hapus
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </>
             )}

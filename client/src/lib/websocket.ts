@@ -118,14 +118,14 @@ class WebSocketClient {
         break;
         
       case 'post_deleted':
-        console.log('Post deleted:', data.postId);
-        // Immediately remove post from cache for instant UI update
+        console.log('Post deleted via WebSocket:', data.postId);
+        // Immediately and permanently remove post from cache
         queryClient.setQueryData(['google-posts'], (oldData: any) => {
           if (!oldData) return oldData;
-          return oldData.filter((post: any) => post.idPostingan !== data.postId);
+          const filteredData = oldData.filter((post: any) => post.idPostingan !== data.postId);
+          console.log(`Removed post ${data.postId}, remaining posts:`, filteredData.length);
+          return filteredData;
         });
-        // Also invalidate for consistency
-        queryClient.invalidateQueries({ queryKey: ['google-posts'] });
         this.triggerEvent('post_deleted', data);
         break;
         

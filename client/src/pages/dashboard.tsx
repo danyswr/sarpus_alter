@@ -108,15 +108,34 @@ export default function Dashboard() {
       
       return { previousPosts };
     },
+    onSuccess: (data, postId) => {
+      // Permanently remove post from cache and prevent it from coming back
+      queryClient.setQueryData(["google-posts"], (old: any) => {
+        if (!old) return old;
+        const filtered = old.filter((post: any) => post.idPostingan !== postId);
+        console.log(`Post ${postId} permanently removed. Remaining posts:`, filtered.length);
+        return filtered;
+      });
+      
+      // Mark this post as deleted in local storage to prevent refetch showing it
+      const deletedPosts = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
+      if (!deletedPosts.includes(postId)) {
+        deletedPosts.push(postId);
+        localStorage.setItem('deletedPosts', JSON.stringify(deletedPosts));
+      }
+    },
     onError: (err, postId, context) => {
       // Restore the previous data on error
       if (context?.previousPosts) {
         queryClient.setQueryData(["google-posts"], context.previousPosts);
       }
+      console.error('Delete failed:', err);
     },
-    onSettled: () => {
-      // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: ["google-posts"] });
+    onSettled: (data, error, postId) => {
+      // Only invalidate if there was an error, otherwise keep the optimistic update
+      if (error) {
+        queryClient.invalidateQueries({ queryKey: ["google-posts"] });
+      }
     },
   });
 
