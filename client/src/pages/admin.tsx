@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Sidebar } from "@/components/sidebar";
+import { ImprovedSidebar } from "@/components/sidebar";
 import { PostCard } from "@/components/post-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ export default function Admin() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const queryClient = useQueryClient();
 
@@ -176,15 +177,17 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Sidebar
+      <ImprovedSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onCreatePost={() => {
           setLocation("/dashboard");
         }}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={setSidebarCollapsed}
       />
 
-      <div className="lg:ml-80 transition-all duration-300">
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-80"}`}>
         {/* Mobile Header */}
         <div className="lg:hidden bg-red-400 border-b-4 border-black px-6 py-4 flex items-center justify-between sticky top-0 z-30">
           <Button

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Sidebar } from "@/components/sidebar";
+import { ImprovedSidebar } from "@/components/sidebar";
 import { PostCard } from "@/components/post-card";
 import { ImageUploadWithPreview } from "@/components/ImageUploadWithPreview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,10 +32,11 @@ import {
   BarChart3,
 } from "lucide-react";
 
-export default function Dashboard() {
+export default function ImprovedDashboard() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [postTitle, setPostTitle] = useState("");
   const [tweetText, setTweetText] = useState("");
@@ -48,6 +49,20 @@ export default function Dashboard() {
   useEffect(() => {
     setIsVisible(true);
   }, []);
+
+  // Load sidebar state from localStorage
+  useEffect(() => {
+    const savedCollapsed = localStorage.getItem("sidebarCollapsed");
+    if (savedCollapsed !== null) {
+      setSidebarCollapsed(JSON.parse(savedCollapsed));
+    }
+  }, []);
+
+  // Save sidebar state to localStorage
+  const handleToggleCollapse = (collapsed: boolean) => {
+    setSidebarCollapsed(collapsed);
+    localStorage.setItem("sidebarCollapsed", JSON.stringify(collapsed));
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -295,8 +310,8 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100 relative">
-      {/* Sidebar */}
-      <Sidebar
+      {/* Improved Sidebar */}
+      <ImprovedSidebar
         isOpen={sidebarOpen}
         onCreatePost={() => {
           const textarea = document.querySelector(
@@ -306,11 +321,15 @@ export default function Dashboard() {
           setSidebarOpen(false);
         }}
         onClose={() => setSidebarOpen(false)}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleCollapse}
       />
 
-      {/* Main Content */}
-      <div className="lg:ml-80 transition-all duration-300">
-        {/* Mobile Header - Changed to Yellow */}
+      {/* Main Content - Responsive margin based on sidebar state */}
+      <div
+        className={`transition-all duration-300 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-80"}`}
+      >
+        {/* Mobile Header */}
         <div className="lg:hidden bg-yellow-400 border-b-4 border-black px-6 py-4 flex items-center justify-between sticky top-0 z-30">
           <Button
             variant="ghost"
@@ -333,11 +352,19 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {/* 3-Column Layout */}
-        <div className="flex max-w-7xl mx-auto">
-          {/* Main Timeline - Center Column */}
-          <div className="flex-1 max-w-2xl mx-auto lg:mx-0">
-            {/* Desktop Header - Changed to Yellow */}
+        {/* Responsive Layout Container */}
+        <div
+          className={`flex transition-all duration-300 ${sidebarCollapsed ? "max-w-full" : "max-w-7xl mx-auto"}`}
+        >
+          {/* Main Timeline - Responsive width */}
+          <div
+            className={`flex-1 transition-all duration-300 ${
+              sidebarCollapsed
+                ? "max-w-4xl mx-auto"
+                : "max-w-2xl mx-auto lg:mx-0"
+            }`}
+          >
+            {/* Desktop Header */}
             <div className="hidden lg:block bg-yellow-400 border-b-4 border-black sticky top-0 z-20">
               <div className="px-6 py-6">
                 <div className="flex items-center justify-between">
@@ -612,9 +639,11 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right Sidebar - Trending Topics (Desktop Only) */}
+          {/* Right Sidebar - Responsive visibility and width */}
           <div
-            className={`hidden xl:block w-80 ml-8 transform transition-all duration-1000 delay-500 ${
+            className={`hidden xl:block transition-all duration-300 ${
+              sidebarCollapsed ? "w-96 ml-8" : "w-80 ml-8"
+            } transform transition-all duration-1000 delay-500 ${
               isVisible
                 ? "translate-y-0 opacity-100"
                 : "translate-y-10 opacity-0"
