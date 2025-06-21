@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth"
 import { useLocation } from "wouter"
 import { ImprovedSidebar } from "@/components/sidebar"
@@ -11,18 +11,29 @@ import { api, type Post } from "@/lib/api"
 import { Edit, User, Menu, MessageSquare, Plus } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
+interface EditFormData {
+  username: string
+  email: string
+  nim: string
+  gender: string
+  jurusan: string
+  bio: string
+  location: string
+  website: string
+}
+
 export default function Profile() {
   const { user, isLoading: authLoading } = useAuth()
   const [, setLocation] = useLocation()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [isVisible, setIsVisible] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false)
+  const [isEditing, setIsEditing] = useState<boolean>(false)
+  const [isVisible, setIsVisible] = useState<boolean>(false)
+  const [error, setError] = useState<string>("")
+  const [success, setSuccess] = useState<string>("")
   const queryClient = useQueryClient()
 
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<EditFormData>({
     username: "",
     email: "",
     nim: "",
@@ -73,7 +84,7 @@ export default function Profile() {
   }) as { data: Post[] }
 
   const updateProfileMutation = useMutation({
-    mutationFn: (data: typeof editForm) => api.user.updateProfile(user!.idUsers, data),
+    mutationFn: (data: EditFormData) => api.user.updateProfile(user!.idUsers, data),
     onSuccess: () => {
       setSuccess("Profil berhasil diperbarui!")
       setIsEditing(false)
