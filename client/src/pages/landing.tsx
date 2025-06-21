@@ -727,7 +727,7 @@ export default function Landing() {
         </div>
       </footer>
 
-      <style jsx>{`
+      <style>{`
         .stroke-text {
           -webkit-text-stroke: 4px black;
           text-stroke: 4px black;
