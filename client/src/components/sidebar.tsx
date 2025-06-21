@@ -103,7 +103,7 @@ export function ImprovedSidebar({
           "fixed top-0 left-0 h-screen bg-gray-100 z-50 transition-all duration-300 ease-in-out",
           "lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-          isCollapsed ? "w-20" : "w-80",
+          isCollapsed ? "w-20" : "w-64",
           "shadow-[4px_0px_0px_0px_rgba(0,0,0,1)]",
         )}
       >
@@ -128,7 +128,7 @@ export function ImprovedSidebar({
             <div
               className={cn(
                 "flex items-center transition-all duration-300",
-                isCollapsed ? "justify-center p-4" : "justify-between p-6",
+                isCollapsed ? "justify-center p-2" : "justify-between p-3",
               )}
             >
               {/* Logo */}
@@ -163,11 +163,11 @@ export function ImprovedSidebar({
           </div>
 
           {/* Navigation */}
-          <div className="flex-1 overflow-y-auto bg-gray-100">
+          <div className="flex-1 overflow-y-auto bg-gray-100 scrollbar-hide">
             <div
               className={cn(
                 "transition-all duration-300",
-                isCollapsed ? "p-2" : "p-6",
+                isCollapsed ? "p-2" : "p-3",
               )}
             >
               <nav className="space-y-3">
@@ -185,21 +185,21 @@ export function ImprovedSidebar({
                             ? "bg-white text-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] scale-[1.02]"
                             : "bg-white text-black hover:bg-gray-50 hover:scale-[1.02] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]",
                           isCollapsed
-                            ? "justify-center p-4 rounded-2xl w-12 h-12 mx-auto"
-                            : "space-x-4 px-6 py-4 rounded-2xl",
+                            ? "justify-center p-2 rounded-2xl w-12 h-12 mx-auto"
+                            : "space-x-4 px-3 py-2 rounded-2xl",
                         )}
                       >
                         <Icon
                           className={cn(
                             "transition-all duration-300 flex-shrink-0",
-                            isCollapsed ? "w-5 h-5" : "w-6 h-6",
+                            isCollapsed ? "w-5 h-5" : "w-5 h-5",
                             "text-black group-hover:scale-110",
                           )}
                         />
 
                         {!isCollapsed && (
                           <>
-                            <span className="font-black text-lg tracking-wide flex-1 uppercase transition-all duration-300">
+                            <span className="font-black text-base tracking-wide flex-1 uppercase transition-all duration-300">
                               {item.name}
                             </span>
 
@@ -293,7 +293,7 @@ export function ImprovedSidebar({
             <div
               className={cn(
                 "border-t-4 border-black bg-yellow-100 flex-shrink-0 transition-all duration-300",
-                isCollapsed ? "p-3" : "p-6",
+                isCollapsed ? "p-3" : "p-3",
               )}
             >
               <div
@@ -386,6 +386,15 @@ export function ImprovedSidebar({
           )}
         </div>
       </div>
+      <style jsx global>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </>
   );
 }

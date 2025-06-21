@@ -138,7 +138,22 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
         deskripsi: editDeskripsi
       });
 
-      const token = localStorage.getItem('auth-token');
+      let token = null;
+      try {
+        const savedUser = localStorage.getItem('feedbacku_user');
+        if (savedUser) {
+          const userData = JSON.parse(savedUser);
+          token = userData.token;
+        }
+      } catch (error) {
+        console.error('Error parsing user data for token:', error);
+      }
+      
+      if (!token) {
+        console.error('No authentication token found');
+        alert('Please log in again to update posts');
+        return;
+      }
       const response = await fetch('/api/posts', {
         method: 'POST',
         headers: {
