@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { Navbar } from "@/components/Navbar";
+import { Navbar } from "@/components/navbar";
 import { PostCard } from "@/components/post-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

@@ -1,14 +1,7 @@
 import type { 
   User, 
   Post, 
-  Comment, 
-  UserInteraction, 
-  Notification,
-  InsertUser, 
-  InsertPost, 
-  InsertComment, 
-  InsertUserInteraction,
-  InsertNotification
+  Comment
 } from "@shared/schema";
 
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz8YWdcQSZlVkmsV6PIvh8E6vDeV1fnbaj51atRBjWAEa5NRhSveWmuSsBNSDGfzfT-/exec";
@@ -18,7 +11,7 @@ export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  createUser(user: Partial<User>): Promise<User>;
   updateUser(id: string, user: Partial<User>): Promise<User>;
   deleteUser(id: string): Promise<boolean>;
   getAllUsers(): Promise<User[]>;
@@ -27,7 +20,7 @@ export interface IStorage {
   getPost(id: string): Promise<Post | undefined>;
   getAllPosts(): Promise<Post[]>;
   getUserPosts(userId: string): Promise<Post[]>;
-  createPost(post: InsertPost): Promise<Post>;
+  createPost(post: Partial<Post>): Promise<Post>;
   updatePost(id: string, post: Partial<Post>): Promise<Post>;
   deletePost(id: string): Promise<boolean>;
   deleteUserPosts(userId: string): Promise<boolean>;
@@ -35,18 +28,11 @@ export interface IStorage {
 
   // Comment operations
   getComments(postId: string): Promise<Comment[]>;
-  createComment(comment: InsertComment): Promise<Comment>;
+  createComment(comment: Partial<Comment>): Promise<Comment>;
   deleteComment(id: string): Promise<boolean>;
 
-  // User interaction operations
-  getUserInteraction(postId: string, userId: string): Promise<UserInteraction | undefined>;
-  createOrUpdateInteraction(interaction: InsertUserInteraction): Promise<UserInteraction>;
-  deleteInteraction(postId: string, userId: string): Promise<boolean>;
-
-  // Notification operations
-  getUserNotifications(userId: string): Promise<Notification[]>;
-  createNotification(notification: InsertNotification): Promise<Notification>;
-  markNotificationAsRead(id: string): Promise<boolean>;
+  // Generic request method
+  makeRequest(action: string, data?: any): Promise<any>;
 
   // Image upload
   uploadImage(imageData: string, fileName: string): Promise<string>;
@@ -117,7 +103,7 @@ export class GoogleSheetsStorage implements IStorage {
     }
   }
 
-  async createUser(user: InsertUser): Promise<User> {
+  async createUser(user: Partial<User>): Promise<User> {
     const result = await this.makeRequest('register', {
       email: user.email,
       username: user.username,
@@ -198,7 +184,7 @@ export class GoogleSheetsStorage implements IStorage {
     }));
   }
 
-  async createPost(post: InsertPost): Promise<Post> {
+  async createPost(post: Partial<Post>): Promise<Post> {
     const result = await this.makeRequest('createPost', {
       userId: post.idUsers,
       judul: post.judul,
@@ -300,7 +286,7 @@ export class GoogleSheetsStorage implements IStorage {
     return result || [];
   }
 
-  async createComment(comment: InsertComment): Promise<Comment> {
+  async createComment(comment: Partial<Comment>): Promise<Comment> {
     const result = await this.makeRequest('createComment', {
       idPostingan: comment.idPostingan,
       idUsers: comment.idUsers,
@@ -320,56 +306,7 @@ export class GoogleSheetsStorage implements IStorage {
     return result.success || false;
   }
 
-  // User interaction operations
-  async getUserInteraction(postId: string, userId: string): Promise<UserInteraction | undefined> {
-    try {
-      const result = await this.makeRequest('getUserInteraction', { postId, userId });
-      if (result.interaction) {
-        return {
-          idPostingan: result.interaction.postId || result.interaction.idPostingan,
-          idUsers: result.interaction.userId || result.interaction.idUsers,
-          interactionType: result.interaction.type || result.interaction.interactionType,
-          timestamp: new Date(result.interaction.timestamp)
-        };
-      }
-      return undefined;
-    } catch (error) {
-      return undefined;
-    }
-  }
-
-  async createOrUpdateInteraction(interaction: InsertUserInteraction): Promise<UserInteraction> {
-    const result = await this.makeRequest('likePost', {
-      postId: interaction.idPostingan,
-      userId: interaction.idUsers,
-      type: interaction.interactionType
-    });
-    return {
-      idPostingan: interaction.idPostingan,
-      idUsers: interaction.idUsers,
-      interactionType: interaction.interactionType,
-      timestamp: new Date()
-    };
-  }
-
-  async deleteInteraction(postId: string, userId: string): Promise<boolean> {
-    const result = await this.makeRequest('removeInteraction', { postId, userId });
-    return result.success || false;
-  }
-
-  // Notification operations
-  async getUserNotifications(userId: string): Promise<Notification[]> {
-    const result = await this.makeRequest('getNotifications', { userId });
-    return (result.notifications || []).map((notif: any) => ({
-      idNotification: notif.idNotification || notif.id,
-      idUsers: notif.idUsers || notif.userId,
-      message: notif.message,
-      timestamp: new Date(notif.timestamp),
-      isRead: notif.isRead || false
-    }));
-  }
-
-  async createNotification(notification: InsertNotification): Promise<Notification> {
+  async createNotification(notification: any): Promise<any> {
     const result = await this.makeRequest('createNotification', {
       userId: notification.idUsers,
       message: notification.message

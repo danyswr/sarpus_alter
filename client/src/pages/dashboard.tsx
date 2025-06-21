@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar } from "@/components/sidebar";
 import { PostCard } from "@/components/post-card";
 import { ImageUploadWithPreview } from "@/components/ImageUploadWithPreview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
