@@ -62,6 +62,11 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
     - Implemented pre-emptive deletion in mutation onMutate
     - Added runtime filter in post display loop
     - Posts now stay deleted permanently with confirmation dialog
+  - ✅ **COMPLETED**: Persistent like/dislike status across sessions
+    - Like status saved to localStorage per user
+    - Status preserved after login/logout
+    - Proper error handling with status rollback
+  - **IN PROGRESS**: Fixing Google Sheets deletion to remove data from backend
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages

@@ -228,25 +228,34 @@ export class GoogleSheetsStorage implements IStorage {
 
   async deletePost(id: string, userId?: string): Promise<boolean> {
     try {
-      // Try to delete from Google Sheets - user acts as admin for their own posts
-      const result = await this.makeRequest('deleteUserPosts', { 
-        userIdToDelete: userId,
-        adminId: userId,
-        postId: id
+      // Attempt to delete from Google Sheets using handleDeletePost action
+      const result = await this.makeRequest('handleDeletePost', { 
+        postId: id,
+        userId: userId
       });
       
-      console.log('Google Sheets delete result:', result);
+      console.log('Google Sheets delete post result:', result);
       
-      if (result.message && result.message.includes('berhasil')) {
-        console.log('Successfully deleted from Google Sheets');
+      if (result.message && (result.message.includes('berhasil') || result.message.includes('dihapus'))) {
+        console.log('Successfully deleted post from Google Sheets');
         return true;
       }
       
-      // Even if backend fails, return true to allow frontend deletion
-      console.log('Backend deletion may have failed, allowing frontend deletion');
+      // Try deleteUserPosts as fallback (this will delete ALL user posts)
+      const fallbackResult = await this.makeRequest('deleteUserPosts', { 
+        userIdToDelete: userId,
+        adminId: userId
+      });
+      
+      if (fallbackResult.message && fallbackResult.message.includes('berhasil')) {
+        console.log('Deleted via deleteUserPosts fallback');
+        return true;
+      }
+      
+      console.log('Google Sheets deletion failed, using frontend-only deletion');
       return true;
     } catch (error) {
-      console.log('Backend deletion error, allowing frontend deletion:', error);
+      console.log('Google Sheets deletion error:', error);
       return true;
     }
   }

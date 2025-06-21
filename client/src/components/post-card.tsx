@@ -18,12 +18,20 @@ interface PostCardProps {
 
 function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
   const { user } = useAuth();
-  const [isLiked, setIsLiked] = useState(
-    user ? post.likedBy?.includes(user.idUsers) : false
-  );
-  const [isDisliked, setIsDisliked] = useState(
-    user ? post.dislikedBy?.includes(user.idUsers) : false
-  );
+  
+  // Check localStorage for persistent like status
+  const getLikeStatus = () => {
+    if (!user) return { liked: false, disliked: false };
+    const userLikes = JSON.parse(localStorage.getItem(`user_likes_${user.idUsers}`) || '{}');
+    return {
+      liked: userLikes[post.idPostingan]?.liked || false,
+      disliked: userLikes[post.idPostingan]?.disliked || false
+    };
+  };
+  
+  const likeStatus = getLikeStatus();
+  const [isLiked, setIsLiked] = useState(likeStatus.liked);
+  const [isDisliked, setIsDisliked] = useState(likeStatus.disliked);
   const [isEditing, setIsEditing] = useState(false);
   const [editJudul, setEditJudul] = useState(post.judul || "");
   const [editDeskripsi, setEditDeskripsi] = useState(post.deskripsi || "");
@@ -36,6 +44,13 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
   const [newComment, setNewComment] = useState("");
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [isPostingComment, setIsPostingComment] = useState(false);
+
+  const saveLikeStatus = (liked: boolean, disliked: boolean) => {
+    if (!user) return;
+    const userLikes = JSON.parse(localStorage.getItem(`user_likes_${user.idUsers}`) || '{}');
+    userLikes[post.idPostingan] = { liked, disliked };
+    localStorage.setItem(`user_likes_${user.idUsers}`, JSON.stringify(userLikes));
+  };
 
   const handleLike = async () => {
     if (!user || isLiking) return;
@@ -56,6 +71,9 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
       setLocalLikes(prev => Math.max(0, prev - 1));
     }
 
+    // Save to localStorage for persistence
+    saveLikeStatus(!wasLiked, false);
+
     try {
       await onLike(post.idPostingan, 'like');
     } catch (error) {
@@ -64,6 +82,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
       setIsDisliked(wasDisliked);
       setLocalLikes(post.likes || 0);
       setLocalDislikes(post.dislikes || 0);
+      saveLikeStatus(wasLiked, wasDisliked);
       console.error('Like failed:', error);
     } finally {
       setIsLiking(false);
@@ -89,6 +108,9 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
       setLocalDislikes(prev => Math.max(0, prev - 1));
     }
 
+    // Save to localStorage for persistence
+    saveLikeStatus(false, !wasDisliked);
+
     try {
       await onLike(post.idPostingan, 'dislike');
     } catch (error) {
@@ -97,6 +119,7 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
       setIsDisliked(wasDisliked);
       setLocalLikes(post.likes || 0);
       setLocalDislikes(post.dislikes || 0);
+      saveLikeStatus(wasLiked, wasDisliked);
       console.error('Dislike failed:', error);
     } finally {
       setIsLiking(false);
