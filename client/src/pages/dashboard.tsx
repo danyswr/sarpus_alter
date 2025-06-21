@@ -37,6 +37,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [postTitle, setPostTitle] = useState("");
   const [tweetText, setTweetText] = useState("");
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
@@ -112,6 +113,7 @@ export default function Dashboard() {
       }
     },
     onSuccess: () => {
+      setPostTitle("");
       setTweetText("");
       setImageUrl("");
       setShowImageUpload(false);
@@ -197,15 +199,10 @@ export default function Dashboard() {
   });
 
   const handleTweet = () => {
-    if (!user || !tweetText.trim()) return;
-
-    // Generate title from first 50 characters of description
-    const autoTitle = tweetText.length > 50 
-      ? tweetText.substring(0, 50) + "..." 
-      : tweetText;
+    if (!user || !postTitle.trim() || !tweetText.trim()) return;
 
     createPostMutation.mutate({
-      judul: autoTitle,
+      judul: postTitle,
       deskripsi: tweetText,
       imageUrl: imageUrl,
       userId: user.idUsers,
@@ -398,13 +395,23 @@ export default function Dashboard() {
                       </span>
                     </div>
 
-                    {/* Tweet Compose Area */}
-                    <div className="flex-1">
+                    {/* Post Compose Area */}
+                    <div className="flex-1 space-y-3">
+                      {/* Title Input */}
+                      <input
+                        type="text"
+                        value={postTitle}
+                        onChange={(e) => setPostTitle(e.target.value)}
+                        placeholder="Judul postingan..."
+                        className="w-full text-xl font-bold border-0 p-0 focus:ring-0 focus:border-0 placeholder:text-gray-500 bg-transparent outline-none"
+                      />
+                      
+                      {/* Description Textarea */}
                       <Textarea
                         value={tweetText}
                         onChange={(e) => setTweetText(e.target.value)}
                         placeholder="Apa yang terjadi di kampus?"
-                        className="text-xl font-bold border-0 resize-none min-h-[80px] p-0 focus:ring-0 focus:border-0 tweet-input placeholder:text-gray-500 bg-transparent"
+                        className="text-lg font-medium border-0 resize-none min-h-[80px] p-0 focus:ring-0 focus:border-0 tweet-input placeholder:text-gray-500 bg-transparent"
                         rows={3}
                       />
 
@@ -444,9 +451,12 @@ export default function Dashboard() {
                           {/* Character Count */}
                           <div className="flex items-center space-x-3">
                             <span className="text-sm font-bold text-gray-600">
-                              {tweetText.length}/280
+                              Judul: {postTitle.length}/100
                             </span>
-                            {tweetText.length > 280 && (
+                            <span className="text-sm font-bold text-gray-600">
+                              Deskripsi: {tweetText.length}/280
+                            </span>
+                            {(postTitle.length > 100 || tweetText.length > 280) && (
                               <Badge className="bg-red-400 text-black border-2 border-black font-black rounded-full text-xs">
                                 Terlalu Panjang!
                               </Badge>
@@ -494,7 +504,9 @@ export default function Dashboard() {
                           onClick={handleTweet}
                           disabled={
                             createPostMutation.isPending ||
+                            !postTitle.trim() ||
                             !tweetText.trim() ||
+                            postTitle.length > 100 ||
                             tweetText.length > 280
                           }
                         >
