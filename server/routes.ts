@@ -442,77 +442,38 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Delete post - Admin functionality adapted for Google Apps Script limitations
+  // Delete post - Fixed to properly handle user ownership verification
   app.delete("/api/posts/:postId", async (req, res) => {
     try {
-      // Handle session expiration by checking auth header directly
-      const authHeader = req.headers.authorization;
-      console.log("Auth header received:", authHeader);
-      
-      // Extract token and handle known admin session
-      const token = authHeader?.replace('Bearer ', '');
-      let currentUser = null;
-      
-      if (token === 'sess_1750438574023_zxouq1rrmxq') {
-        // Known admin session that expired - recreate it
-        currentUser = {
-          idUsers: 'USER_1750431548022',
-          username: 'coba',
-          email: 'coba@gmail.com',
-          role: 'Admin'
-        };
-        console.log("Using known admin session");
-      } else {
-        currentUser = await getCurrentUser(req);
-      }
+      const currentUser = await getCurrentUser(req);
       
       if (!currentUser) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return res.status(401).json({ message: "Unauthorized - Harap login terlebih dahulu" });
       }
 
       const { postId } = req.params;
-      const { userId } = req.body || {};
       
       console.log("Delete attempt:", {
         userId: currentUser.idUsers,
         postId: postId,
         userRole: currentUser.role,
-        userData: currentUser
+        username: currentUser.username
       });
 
-      // Check for admin privileges - pattern matching for test accounts
-      const isTestAdmin = (
-        currentUser.email?.includes("admin") ||
-        currentUser.username?.includes("admin") ||
-        currentUser.email === "admin@test.com" ||
-        currentUser.username === "admin" ||
-        currentUser.email === "uniqueadmin2024@test.com" ||
-        currentUser.username === "uniqueadmin"
-      );
-      
-      const hasAdminRole = currentUser.role === "admin" || currentUser.role === "Admin";
-      const isAdmin = hasAdminRole || isTestAdmin;
-      
-      console.log("Admin check:", {
-        isTestAdmin,
-        isAdmin,
-        userRole: currentUser.role,
-        userEmail: currentUser.email,
-        username: currentUser.username,
-        emailIncludes: currentUser.email?.includes("admin"),
-        usernameIncludes: currentUser.username?.includes("admin"),
-        arrayCheck: adminEmailPatterns.includes(currentUser.email || "")
-      });
+      // Check for admin privileges
+      const isAdmin = currentUser.role === "admin" || currentUser.role === "Admin" ||
+                     currentUser.email?.includes("admin") ||
+                     currentUser.username?.includes("admin") ||
+                     adminEmailPatterns.includes(currentUser.email || "");
       
       if (isAdmin) {
-        // Admin deletion - attempt actual deletion through storage
+        // Admin can delete any post
         console.log("Admin deleting post:", postId, "by user:", currentUser.username);
         
         try {
           const deleteResult = await storage.deletePost(postId, currentUser.idUsers);
           
           if (deleteResult) {
-            // Broadcast post deletion to all connected clients in real-time
             broadcastToAll({
               type: 'post_deleted',
               postId: postId,
@@ -522,61 +483,87 @@ export function registerRoutes(app: Express): Server {
               message: `Admin ${currentUser.username} menghapus post`
             });
             
-            res.json({
+            return res.json({
               message: "Post berhasil dihapus oleh admin",
-              success: true,
-              adminDelete: true,
-              deletedBy: currentUser.username,
-              actualDelete: deleteResult
+              success: true
             });
           } else {
-            res.status(500).json({
+            return res.status(500).json({
               message: "Gagal menghapus post",
               success: false
             });
           }
         } catch (deleteError) {
           console.error("Admin delete error:", deleteError);
-          res.status(500).json({
+          return res.status(500).json({
             message: "Terjadi kesalahan saat menghapus post",
             success: false,
             error: deleteError instanceof Error ? deleteError.message : String(deleteError)
           });
         }
-        return;
       }
 
-      // For non-admin users, check if they own the post
-      const existingPost = await storage.getPost(postId);
-      
-      if (!existingPost) {
-        return res.status(404).json({ message: "Post tidak ditemukan" });
+      // For regular users, check if they own the post
+      try {
+        const existingPost = await storage.getPost(postId);
+        
+        if (!existingPost) {
+          return res.status(404).json({ message: "Post tidak ditemukan" });
+        }
+
+        console.log("Ownership check:", {
+          postOwner: existingPost.idUsers,
+          currentUser: currentUser.idUsers,
+          matches: existingPost.idUsers === currentUser.idUsers
+        });
+
+        if (existingPost.idUsers !== currentUser.idUsers) {
+          return res.status(403).json({ 
+            message: "Anda tidak memiliki izin untuk menghapus post ini",
+            details: "Hanya pemilik post atau admin yang dapat menghapus post"
+          });
+        }
+
+        // User owns the post - proceed with deletion
+        console.log("User owns post, proceeding with deletion");
+        const deleted = await storage.deletePost(postId, currentUser.idUsers);
+        
+        if (!deleted) {
+          return res.status(500).json({ 
+            message: "Gagal menghapus post",
+            details: "Terjadi kesalahan pada server saat menghapus post"
+          });
+        }
+
+        // Broadcast post deletion to all connected clients in real-time
+        broadcastToAll({
+          type: 'post_deleted',
+          postId: postId,
+          deletedBy: currentUser.username,
+          isAdmin: false,
+          timestamp: new Date().toISOString(),
+          message: `${currentUser.username} menghapus post mereka`
+        });
+
+        res.json({ 
+          message: "Post berhasil dihapus",
+          success: true
+        });
+
+      } catch (getPostError) {
+        console.error("Error getting post for ownership check:", getPostError);
+        return res.status(500).json({ 
+          message: "Gagal memverifikasi kepemilikan post",
+          details: "Terjadi kesalahan saat mengakses data post"
+        });
       }
 
-      if (existingPost.idUsers !== currentUser.idUsers) {
-        return res.status(403).json({ message: "Tidak memiliki izin untuk menghapus post ini" });
-      }
-
-      // User owns the post - proceed with deletion
-      const deleted = await storage.deletePost(postId, currentUser.idUsers);
-      if (!deleted) {
-        return res.status(500).json({ message: "Gagal menghapus post" });
-      }
-
-      // Broadcast post deletion to all connected clients in real-time
-      broadcastToAll({
-        type: 'post_deleted',
-        postId: postId,
-        deletedBy: currentUser.username,
-        isAdmin: false,
-        timestamp: new Date().toISOString(),
-        message: `${currentUser.username} menghapus post mereka`
-      });
-
-      res.json({ message: "Post berhasil dihapus" });
     } catch (error) {
       console.error("Delete post error:", error);
-      res.status(500).json({ message: "Terjadi kesalahan saat menghapus post" });
+      res.status(500).json({ 
+        message: "Terjadi kesalahan saat menghapus post",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

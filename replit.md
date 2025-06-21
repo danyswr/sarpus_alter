@@ -48,6 +48,10 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
 - ✓ Fixed all TypeScript schema errors and API routes
 - ✓ Added comprehensive API endpoints for all platform features
 - ✓ Integrated with provided Google Apps Script URL and Drive folder
+- ✓ **FIXED**: Delete post functionality - improved user ownership verification and error handling
+  - Users can now properly delete their own posts
+  - Enhanced authorization checks and clearer error messages
+  - Fixed backend route to properly validate post ownership
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages
