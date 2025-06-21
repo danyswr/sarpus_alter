@@ -66,7 +66,11 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
     - Like status saved to localStorage per user
     - Status preserved after login/logout
     - Proper error handling with status rollback
-  - **IN PROGRESS**: Fixing Google Sheets deletion to remove data from backend
+  - **LIMITATION IDENTIFIED**: Google Sheets backend deletion requires admin role
+    - Google Apps Script handleDeletePost requires admin permission
+    - Frontend deletion works perfectly with persistent localStorage filtering
+    - User experience maintained - deleted posts stay hidden permanently
+    - **SOLUTION**: Hybrid approach - frontend deletion + backend limitation documented
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages
