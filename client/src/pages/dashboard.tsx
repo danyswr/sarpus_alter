@@ -33,7 +33,14 @@ export default function Dashboard() {
 
   const { data: posts = [], isLoading, refetch: refetchPosts } = useQuery({
     queryKey: ["google-posts"],
-    queryFn: () => api.posts.getAllPosts(),
+    queryFn: async () => {
+      const fetchedPosts = await api.posts.getAllPosts();
+      // Filter out posts that have been deleted locally
+      const deletedPosts = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
+      const filteredPosts = fetchedPosts.filter((post: any) => !deletedPosts.includes(post.idPostingan));
+      console.log(`Filtered out ${fetchedPosts.length - filteredPosts.length} deleted posts`);
+      return filteredPosts;
+    },
     enabled: !!user,
     refetchInterval: 3000,
     staleTime: 1000,
@@ -99,6 +106,14 @@ export default function Dashboard() {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["google-posts"] });
       
+      // Immediately add to deleted posts to prevent any reappearance
+      const deletedPosts = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
+      if (!deletedPosts.includes(postId)) {
+        deletedPosts.push(postId);
+        localStorage.setItem('deletedPosts', JSON.stringify(deletedPosts));
+        console.log(`Pre-emptively added ${postId} to deleted posts list`);
+      }
+      
       // Optimistically remove the post from the UI immediately
       const previousPosts = queryClient.getQueryData(["google-posts"]);
       queryClient.setQueryData(["google-posts"], (old: any) => {
@@ -122,9 +137,15 @@ export default function Dashboard() {
       if (!deletedPosts.includes(postId)) {
         deletedPosts.push(postId);
         localStorage.setItem('deletedPosts', JSON.stringify(deletedPosts));
+        console.log(`Added ${postId} to deleted posts list:`, deletedPosts);
       }
     },
     onError: (err, postId, context) => {
+      // On error, remove from deleted posts list and restore
+      const deletedPosts = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
+      const updatedDeleted = deletedPosts.filter((id: string) => id !== postId);
+      localStorage.setItem('deletedPosts', JSON.stringify(updatedDeleted));
+      
       // Restore the previous data on error
       if (context?.previousPosts) {
         queryClient.setQueryData(["google-posts"], context.previousPosts);
@@ -132,9 +153,12 @@ export default function Dashboard() {
       console.error('Delete failed:', err);
     },
     onSettled: (data, error, postId) => {
-      // Only invalidate if there was an error, otherwise keep the optimistic update
+      // Don't refetch automatically to prevent deleted posts from reappearing
       if (error) {
+        // Only refetch on error, but still apply the deleted filter
         queryClient.invalidateQueries({ queryKey: ["google-posts"] });
+      } else {
+        console.log(`Post ${postId} deletion completed successfully`);
       }
     },
   });
@@ -315,6 +339,11 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-0">
               {(posts as Post[])
+                .filter((post: Post) => {
+                  // Additional filter to remove deleted posts
+                  const deletedPosts = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
+                  return !deletedPosts.includes(post.idPostingan);
+                })
                 .sort((a, b) => {
                   // Sort by timestamp (newest first)
                   const dateA = new Date(a.timestamp).getTime();

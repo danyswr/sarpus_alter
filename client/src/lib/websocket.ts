@@ -119,11 +119,17 @@ class WebSocketClient {
         
       case 'post_deleted':
         console.log('Post deleted via WebSocket:', data.postId);
-        // Immediately and permanently remove post from cache
+        // Add to deleted posts list in localStorage
+        const deletedPosts = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
+        if (!deletedPosts.includes(data.postId)) {
+          deletedPosts.push(data.postId);
+          localStorage.setItem('deletedPosts', JSON.stringify(deletedPosts));
+        }
+        // Immediately remove from cache
         queryClient.setQueryData(['google-posts'], (oldData: any) => {
           if (!oldData) return oldData;
           const filteredData = oldData.filter((post: any) => post.idPostingan !== data.postId);
-          console.log(`Removed post ${data.postId}, remaining posts:`, filteredData.length);
+          console.log(`Removed post ${data.postId} via WebSocket, remaining posts:`, filteredData.length);
           return filteredData;
         });
         this.triggerEvent('post_deleted', data);

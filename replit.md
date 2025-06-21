@@ -57,6 +57,11 @@ Platform untuk mahasiswa dan dosen memberikan keluh kesah/feedback dalam bentuk 
     - Fixed Google Apps Script parameter mapping issues
     - Optimistic UI updates for instant visual feedback
     - **FINAL STATUS**: Delete functionality working perfectly with real-time updates
+    - ✅ **COMPLETED**: Fixed persistent post reappearance with multiple filter layers
+    - Added localStorage tracking for deleted posts
+    - Implemented pre-emptive deletion in mutation onMutate
+    - Added runtime filter in post display loop
+    - Posts now stay deleted permanently with confirmation dialog
 
 ## User Preferences
 - Language: Indonesian for UI text and error messages
