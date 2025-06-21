@@ -154,17 +154,13 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
         alert('Please log in again to update posts');
         return;
       }
-      const response = await fetch('/api/posts', {
-        method: 'POST',
+      const response = await fetch(`/api/posts/${post.idPostingan}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          action: 'updatePost',
-          postId: post.idPostingan,
-          idPostingan: post.idPostingan,
-          userId: user.idUsers,
           judul: editJudul,
           deskripsi: editDeskripsi
         })
