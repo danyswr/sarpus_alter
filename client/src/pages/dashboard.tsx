@@ -239,8 +239,12 @@ export default function Dashboard() {
   const typedPosts = posts as Post[];
   const trendingTopics = typedPosts.reduce(
     (topics: { [key: string]: number }, post: Post) => {
-      const deskripsi = typeof post.deskripsi === 'string' ? post.deskripsi : String(post.deskripsi || '');
-      const judul = typeof post.judul === 'string' ? post.judul : String(post.judul || '');
+      const deskripsi =
+        typeof post.deskripsi === "string"
+          ? post.deskripsi
+          : String(post.deskripsi || "");
+      const judul =
+        typeof post.judul === "string" ? post.judul : String(post.judul || "");
       const words = deskripsi
         .toLowerCase()
         .split(" ")
@@ -316,18 +320,6 @@ export default function Dashboard() {
             <Menu className="w-5 h-5 text-black" />
           </Button>
 
-          <div className="flex items-center space-x-3">
-            <div className="bg-white p-2 rounded-xl border-2 border-black">
-              <Trophy className="text-black text-lg" />
-            </div>
-            <div>
-              <h1 className="text-xl font-black text-black">BERANDA</h1>
-              <p className="text-xs text-black font-bold -mt-1">
-                Timeline SARPUS
-              </p>
-            </div>
-          </div>
-
           <Button
             onClick={() => {
               const textarea = document.querySelector(
@@ -349,20 +341,6 @@ export default function Dashboard() {
             <div className="hidden lg:block bg-yellow-400 border-b-4 border-black sticky top-0 z-20">
               <div className="px-6 py-6">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="bg-white p-3 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                      <Trophy className="text-black text-2xl" />
-                    </div>
-                    <div>
-                      <h1 className="text-3xl font-black text-black uppercase">
-                        BERANDA
-                      </h1>
-                      <p className="text-lg font-bold text-black">
-                        Timeline SARPUS
-                      </p>
-                    </div>
-                  </div>
-
                   <Button
                     onClick={() => refetchPosts()}
                     className="bg-white text-black hover:bg-gray-100 border-4 border-black rounded-2xl p-3 font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-300"
@@ -405,7 +383,7 @@ export default function Dashboard() {
                         placeholder="Judul postingan..."
                         className="w-full text-xl font-bold border-0 p-0 focus:ring-0 focus:border-0 placeholder:text-gray-500 bg-transparent outline-none"
                       />
-                      
+
                       {/* Description Textarea */}
                       <Textarea
                         value={tweetText}
@@ -456,7 +434,8 @@ export default function Dashboard() {
                             <span className="text-sm font-bold text-gray-600">
                               Deskripsi: {tweetText.length}/280
                             </span>
-                            {(postTitle.length > 100 || tweetText.length > 280) && (
+                            {(postTitle.length > 100 ||
+                              tweetText.length > 280) && (
                               <Badge className="bg-red-400 text-black border-2 border-black font-black rounded-full text-xs">
                                 Terlalu Panjang!
                               </Badge>

@@ -138,10 +138,12 @@ function PostCard({ post, onLike, onDelete, onUpdate }: PostCardProps) {
         deskripsi: editDeskripsi
       });
 
+      const token = localStorage.getItem('auth-token');
       const response = await fetch('/api/posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           action: 'updatePost',
