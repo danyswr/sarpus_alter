@@ -62,12 +62,10 @@ export default function Profile() {
     localStorage.setItem("sidebarCollapsed", JSON.stringify(collapsed))
   }
 
-  // Check authentication and redirect if needed
   useEffect(() => {
     if (!authLoading && !user) {
       setLocation("/login")
     }
-
     if (user) {
       setEditForm({
         username: user.username || "",
@@ -104,15 +102,32 @@ export default function Profile() {
   })
 
   const uploadImageMutation = useMutation({
-    mutationFn: async (file: File): Promise<string> => {
-      return new Promise((resolve, reject) => {
+    mutationFn: async (file: File) => {
+      return new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
         reader.onload = async () => {
           try {
             const base64 = reader.result as string
-            const result = await api.upload.uploadImage(base64, file.name)
-            const imageUrl = (result as any).imageUrl || ""
-            resolve(imageUrl)
+            const base64Data = base64.split(",")[1]
+
+            const response = await fetch("/api/upload", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+              body: JSON.stringify({
+                image: base64Data,
+                fileName: file.name,
+              }),
+            })
+
+            if (!response.ok) {
+              throw new Error("Gagal mengupload gambar")
+            }
+
+            const result = await response.json()
+            resolve(result.imageUrl)
           } catch (error) {
             reject(error)
           }
@@ -156,6 +171,20 @@ export default function Profile() {
     }
   }
 
+  const likePostMutation = useMutation({
+    mutationFn: ({ postId, type }: { postId: string; type: "like" | "dislike" }) => api.posts.likePost(postId, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] })
+    },
+  })
+
+  const deletePostMutation = useMutation({
+    mutationFn: (postId: string) => api.posts.deletePost(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] })
+    },
+  })
+
   const handleSaveProfile = () => {
     updateProfileMutation.mutate(editForm)
   }
@@ -180,7 +209,7 @@ export default function Profile() {
     setSuccess("")
   }
 
-  if (authLoading) {
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -191,11 +220,7 @@ export default function Profile() {
     )
   }
 
-  if (!user) {
-    return null
-  }
-
-  const userPosts = posts.filter(post => post.idUsers === user.idUsers)
+  const userPosts = posts.filter((post: Post) => post.idUsers === user.idUsers)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -601,9 +626,9 @@ export default function Profile() {
                       <PostCard
                         key={post.idPostingan}
                         post={post}
-                        onLike={(postId, type) => {}}
-                        onDelete={(postId) => {}}
-                        onUpdate={() => {}}
+                        onLike={(postId, type) => likePostMutation.mutate({ postId, type })}
+                        onDelete={(postId) => deletePostMutation.mutate(postId)}
+                        onUpdate={() => queryClient.invalidateQueries({ queryKey: ["/api/posts"] })}
                       />
                     ))}
                   </div>
